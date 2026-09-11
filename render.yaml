@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: company-ai-free-beta
+    runtime: python
+    plan: free
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'
+    healthCheckPath: /healthz
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: CORS_ORIGINS
+        sync: false
+      - key: TRUSTED_HOSTS
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: PASSWORD_PEPPER
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+      - key: DEMO_ADMIN_PASSWORD
+        sync: false
+      - key: PUBLIC_RATE_LIMIT
+        value: "30"
