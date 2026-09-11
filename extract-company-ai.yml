@@ -1,6 +1,9 @@
 name: Extract Company AI ZIP
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -11,24 +14,40 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Extract ZIP
+      - name: Extract Company AI ZIP
         run: |
           set -e
+
           ZIP="$(find . -maxdepth 1 -type f -name '*.zip' | head -n 1)"
-          test -n "$ZIP"
+
+          if [ -z "$ZIP" ]; then
+            echo "No ZIP file found. Nothing to extract."
+            exit 0
+          fi
+
           rm -rf /tmp/company-ai-extract
           mkdir -p /tmp/company-ai-extract
+
           unzip -q "$ZIP" -d /tmp/company-ai-extract
+
           cp -a /tmp/company-ai-extract/. .
+
           rm -f "$ZIP"
 
       - name: Commit extracted project
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           git add -A
-          git diff --cached --quiet && exit 0
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
           git commit -m "Extract Company AI v8.5.2 Free Beta"
           git push
