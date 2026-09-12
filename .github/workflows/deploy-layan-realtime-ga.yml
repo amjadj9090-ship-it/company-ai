@@ -4,7 +4,9 @@ on:
   push:
     branches: [main]
     paths:
+      - 'companyai_v9_optimized.html'
       - 'frontend/layan-realtime-ga-fix.js'
+      - 'frontend/layan-realtime-hotfix.js'
       - 'layan-realtime-ga.trigger'
       - '.github/workflows/deploy-layan-realtime-ga.yml'
   workflow_dispatch:
@@ -27,15 +29,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
+
       - name: Build and validate Layan Realtime frontend
         run: |
           set -e
           test -s companyai_v9_optimized.html
           test -s frontend/layan-realtime-ga-fix.js
+          test -s frontend/layan-realtime-hotfix.js
           mkdir -p frontend/assets
           python3 - <<'PY'
           import base64,re
@@ -47,22 +47,26 @@ jobs:
           Path('frontend/assets/layan-office.webp').write_bytes(data)
           Path('frontend/index.html').write_text(Path('companyai_v9_optimized.html').read_text(encoding='utf-8'),encoding='utf-8')
           p=Path('frontend/index.html'); s=p.read_text(encoding='utf-8')
-          tag='<script src="layan-realtime-ga-fix.js"></script>'
-          if tag not in s: s=s.replace('</body>',tag+'\n</body>',1)
-          s += '\n<!-- company-ai-build: layan-ga-realtime-verified-v3-2026-09-12 -->\n'
+          for tag in ['<script src="layan-realtime-ga-fix.js"></script>','<script src="layan-realtime-hotfix.js"></script>']:
+              s=s.replace(tag,'')
+          s=s.replace('</body>','<script src="layan-realtime-ga-fix.js"></script>\n<script src="layan-realtime-hotfix.js"></script>\n</body>',1)
+          s += '\n<!-- company-ai-build: layan-realtime-hotfix-v4-verified-2026-09-12 -->\n'
           p.write_text(s,encoding='utf-8')
           PY
           node --check frontend/layan-realtime-ga-fix.js
-          grep -q 'layan-ga-realtime-verified-v3-2026-09-12' frontend/index.html
-          grep -q 'api/voice-avatar/public-session' frontend/layan-realtime-ga-fix.js
-          grep -q 'v1/realtime/calls' frontend/layan-realtime-ga-fix.js
-          grep -q 'semantic_vad' frontend/layan-realtime-ga-fix.js
-          grep -q 'interrupt_response' frontend/layan-realtime-ga-fix.js
-          grep -q 'company-ai-0mya.onrender.com' frontend/layan-realtime-ga-fix.js
+          node --check frontend/layan-realtime-hotfix.js
+          grep -q 'layan-realtime-hotfix.js' frontend/index.html
+          grep -q 'layan-realtime-hotfix-v4-verified-2026-09-12' frontend/index.html
+          grep -q 'company-ai-0mya.onrender.com' frontend/layan-realtime-hotfix.js
+          grep -q 'v1/realtime/calls' frontend/layan-realtime-hotfix.js
+          grep -q 'semantic_vad' frontend/layan-realtime-hotfix.js
+          grep -q 'interrupt_response' frontend/layan-realtime-hotfix.js
+
       - name: Upload frontend
         uses: actions/upload-pages-artifact@v4
         with:
           path: './frontend'
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
