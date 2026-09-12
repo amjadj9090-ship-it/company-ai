@@ -1,0 +1,37 @@
+name: Force-load Layan Realtime
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-index:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Inject versioned Layan realtime client
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('frontend/index.html')
+          s = p.read_text(encoding='utf-8')
+          marker = '<script src="layan-realtime-hotfix.js?v=20260913-01"></script>'
+          if marker not in s:
+              s = s.replace('</body></html>', marker + '</body></html>')
+              p.write_text(s, encoding='utf-8')
+          print('Layan realtime loader present:', marker in s)
+          PY
+
+      - name: Commit patch
+        run: |
+          git config user.name "company-ai-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/index.html
+          git diff --cached --quiet || git commit -m "Load Layan realtime WebRTC client"
+          git push
