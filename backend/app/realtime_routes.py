@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, FastAPI, HTTPException
 
 router = APIRouter()
 
@@ -76,3 +76,18 @@ async def create_layan_realtime_session():
         "session": data.get("session", {}),
         "model": REALTIME_MODEL,
     }
+
+
+# main.py imports this router before creating its FastAPI app, but the historical
+# main.py did not include the router. Automatically attach it only to the Company AI
+# app so the endpoint works regardless of whether Render starts main.py or realtime_entry.py.
+_original_fastapi_init = FastAPI.__init__
+
+
+def _company_ai_fastapi_init(self, *args, **kwargs):
+    _original_fastapi_init(self, *args, **kwargs)
+    if getattr(self, "title", "") == "Company AI Global Business OS":
+        self.include_router(router)
+
+
+FastAPI.__init__ = _company_ai_fastapi_init
