@@ -45,20 +45,16 @@ jobs:
           import re
           p=Path('companyai_v9_optimized.html')
           s=p.read_text(encoding='utf-8')
-          # Several frontend handlers use await. A normal function declaration
-          # containing await is a SyntaxError and stops the entire main script.
-          # Convert every function whose body contains await into an async function.
           matches=list(re.finditer(r'(?<!async )function\\s+([A-Za-z0-9_$]+)\\s*\\([^)]*\\)\\s*\\{',s))
           for m in reversed(matches):
-              start=m.end(); depth=1; i=start; found=False
+              start=m.end(); depth=1; i=start
               while i<len(s) and depth:
                   if s[i]=='{': depth+=1
                   elif s[i]=='}': depth-=1
                   i+=1
               if depth==0 and 'await ' in s[start:i-1]:
                   prefix=s[:m.start()]
-                  if not prefix.endswith('async '):
-                      s=s[:m.start()]+'async '+s[m.start():]
+                  if not prefix.endswith('async '): s=s[:m.start()]+'async '+s[m.start():]
           p.write_text(s,encoding='utf-8')
           PY
 
@@ -69,8 +65,7 @@ jobs:
           p=Path('companyai_v9_optimized.html')
           s=p.read_text(encoding='utf-8')
           boot="""<script>(function(){try{var n=(navigator.languages&&navigator.languages[0]||navigator.language||'en').toLowerCase().split('-')[0];var ok=['ar','en','zh','fr','de','es','it','pt','tr','nl','ru','ja','ko'];if(ok.indexOf(n)<0)n='en';document.documentElement.lang=n;document.documentElement.dir=n==='ar'?'rtl':'ltr';}catch(e){}})();</script>"""
-          if 'navigator.languages&&navigator.languages[0]' not in s:
-              s=s.replace('</head>',boot+'</head>',1)
+          if 'navigator.languages&&navigator.languages[0]' not in s: s=s.replace('</head>',boot+'</head>',1)
           p.write_text(s,encoding='utf-8')
           PY
 
@@ -103,8 +98,7 @@ jobs:
           s=Path('companyai_v9_optimized.html').read_text(encoding='utf-8')
           scripts=re.findall(r'<script[^>]*>(.*?)</script>',s,re.S|re.I)
           if len(scripts)<2: raise SystemExit(f'Expected bootstrap plus main script, got {len(scripts)}')
-          if s.count('</script>') != s.count('<script'):
-              raise SystemExit('Unbalanced script tags')
+          if s.count('</script>') != s.count('<script'): raise SystemExit('Unbalanced script tags')
           for i,x in enumerate(scripts): Path(f'/tmp/company_ai_{i}.js').write_text(x,encoding='utf-8')
           required=['openAI','openLayanVoice','startLayanVoice','toggleLayanVoice','answerLayan','speakLayan','askAI']
           missing=[x for x in required if x not in s]
@@ -123,9 +117,4 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add companyai_v9_optimized.html frontend/index.html .github/workflows/promote-layan-v9.yml
-          if git diff --cached --quiet; then
-            echo "No frontend change to commit."
-          else
-            git commit -m "Fix Company AI Layan runtime and publish interactive frontend"
-            git push
-          fi
+          if git diff --cached --quiet; then echo "No frontend change to commit."; else git commit -m "Fix Company AI Layan runtime and publish interactive frontend"; git push; fi
