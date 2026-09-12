@@ -23,16 +23,21 @@ jobs:
           from pathlib import Path
           p=Path('companyai_v9_optimized.html')
           s=p.read_text(encoding='utf-8')
-          # The language map must exist before the initial language lookup.
+          # Always start from the browser/device language on first load.
+          s=s.replace("let lang=localStorage.getItem('company_ai_lang')||browserBaseLanguage();", "let lang=browserBaseLanguage();", 1)
+          # The language map must be declared before browserBaseLanguage() is called.
           marker='const LAYAN_LANGS='
           pos=s.find(marker)
           init=s.find('let lang=browserBaseLanguage();')
           if pos>init and pos>=0 and init>=0:
               end=s.find('\n',pos)
+              if end<0: end=len(s)
               block=s[pos:end+1]
               s=s[:pos]+s[end+1:]
               init=s.find('let lang=browserBaseLanguage();')
               s=s[:init]+block+s[init:]
+          # Remove accidental duplicate closing script tag.
+          s=s.replace('</script></script></body></html>', '</script></body></html>')
           p.write_text(s,encoding='utf-8')
           PY
 
@@ -50,9 +55,12 @@ jobs:
           if marker in s and 'layanQuickActions' not in s: s=s.replace(marker,insert,1)
           css='''.layanQuickActions{position:absolute;right:18px;left:18px;bottom:82px;display:flex;gap:10px;z-index:4}.layanQuickActions button{flex:1;border:1px solid rgba(255,255,255,.28);background:rgba(7,19,33,.78);backdrop-filter:blur(12px);color:#fff;border-radius:14px;padding:13px 12px;font-weight:900;cursor:pointer;box-shadow:0 10px 30px rgba(0,0,0,.22)}.layanQuickActions button:hover{background:rgba(20,45,72,.9)}@media(max-width:520px){.layanQuickActions{bottom:72px;flex-direction:column}.layanQuickActions button{padding:11px}.layanVisual{min-height:52dvh;height:52dvh}}\n'''
           if 'layanQuickActions{position:' not in s: s=s.replace('</style>',css+'</style>',1)
+          # Keep the public page useful even when the backend is not deployed yet.
           oldcatch="catch(e){const typing=document.getElementById('salesTyping');if(typing)typing.textContent=lang==='ar'?'تعذر الاتصال بموظف المبيعات حالياً.':'Sales employee is temporarily unavailable.'}finally"
           newcatch="""catch(e){const typing=document.getElementById('salesTyping');if(typing){const q=v.toLowerCase();let local=lang==='ar'?'فهمت طلبك. خلينا نحدد هدفك والخطوة التالية، وأنا معك خطوة بخطوة.':'I understood your request. Let’s define the goal and next step together.';if(/موقع|website|web/.test(q))local=lang==='ar'?'ممتاز. ليان بتساعدك بتحديد أهداف الموقع، الصفحات والوظائف المطلوبة، وبعدها مننتقل للتصميم والتطوير والاختبار.':'Great. Layan can help define the website goals, pages and required features, then move to design, development and testing.';else if(/تطبيق|app|application/.test(q))local=lang==='ar'?'ممتاز. منحدد فكرة التطبيق والمستخدمين والوظائف، وبعدها مننتقل للتصميم والتطوير والاختبار.':'Great. We can define the app idea, users and features, then move to design, development and testing.';typing.innerHTML=escapeHtml(local)}}finally"""
           if oldcatch in s: s=s.replace(oldcatch,newcatch,1)
+          # Prevent null-element errors from disabling the whole app on pages without legacy IDs.
+          s=s.replace("document.getElementById('aiTitle').textContent=t.title||T.en.title;document.getElementById('aiGreeting').textContent=t.greet||T.en.greet;document.getElementById('chatInput').placeholder=t.placeholder||T.en.placeholder;", "const a=document.getElementById('aiTitle'),g=document.getElementById('aiGreeting'),c=document.getElementById('chatInput');if(a)a.textContent=t.title||T.en.title;if(g)g.textContent=t.greet||T.en.greet;if(c)c.placeholder=t.placeholder||T.en.placeholder;", 1)
           p.write_text(s,encoding='utf-8')
           PY
 
@@ -64,12 +72,15 @@ jobs:
           s=Path('companyai_v9_optimized.html').read_text(encoding='utf-8')
           scripts=re.findall(r'<script[^>]*>(.*?)</script>',s,re.S|re.I)
           if len(scripts)!=2: raise SystemExit(f'Expected two script blocks, got {len(scripts)}')
+          if s.count('</script>') != s.count('<script'):
+              raise SystemExit('Unbalanced script tags')
           Path('/tmp/company_ai_head.js').write_text(scripts[0],encoding='utf-8')
           Path('/tmp/company_ai.js').write_text(scripts[1],encoding='utf-8')
           required=['openAI','openLayanVoice','startLayanVoice','toggleLayanVoice','answerLayan','speakLayan','askAI']
           missing=[x for x in required if x not in s]
           if missing: raise SystemExit('Missing functions: '+str(missing))
           if '<body' not in s or '</body>' not in s or '</html>' not in s: raise SystemExit('Malformed HTML shell')
+          if s.find('const LAYAN_LANGS=') > s.find('let lang=browserBaseLanguage();'): raise SystemExit('LAYAN_LANGS still declared after language initialization')
           PY
           node --check /tmp/company_ai_head.js
           node --check /tmp/company_ai.js
@@ -85,8 +96,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No frontend change to commit."
           else
-            git commit -m "Fix Company AI runtime initialization"
+            git commit -m "Fix Company AI Layan runtime and publish interactive frontend"
             git push
           fi
-
-      # Triggered validation refresh: keep promotion path active after runtime repair.
