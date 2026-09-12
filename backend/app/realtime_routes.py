@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 
 import httpx
@@ -7,115 +8,145 @@ from fastapi import APIRouter, FastAPI, HTTPException, Request, Response
 
 router = APIRouter()
 
-REALTIME_MODEL = os.getenv("REALTIME_MODEL", "gpt-realtime-2.1")
+REALTIME_MODEL = "gpt-realtime-2.1"
 OPENAI_REALTIME_CALLS_URL = "https://api.openai.com/v1/realtime/calls"
 
 LAYAN_INSTRUCTIONS = """You are Layan, the voice AI assistant for Company AI. Speak naturally and warmly. Support the visitor's language automatically. When speaking Arabic, use Syrian/Levantine Arabic and do not use Egyptian phrasing. Keep answers clear and practical. Company AI owner approval is required before sensitive commitments such as transfers, withdrawals, signing contracts, or non-standard binding commitments. You may discuss, qualify leads, prepare quotes and drafts, but do not claim that a sensitive commitment was finalized without owner approval."""
 
 
 def _realtime_session() -> dict:
+    # Keep the initial WebRTC session configuration exactly aligned with the
+    # current OpenAI unified /v1/realtime/calls contract. Extra legacy fields
+    # here can cause the provider to reject the SDP handshake before audio starts.
     return {
         "type": "realtime",
         "model": REALTIME_MODEL,
-        "instructions": LAYAN_INSTRUCTIONS,
         "audio": {
-            "input": {
-                "turn_detection": {
-                    "type": "server_vad",
-                    "threshold": 0.5,
-                    "prefix_padding_ms": 300,
-                    "silence_duration_ms": 200,
-                    "create_response": True,
-                    "interrupt_response": True,
-                },
-                "transcription": {"model": "gpt-4o-transcribe"},
-            },
-            "output": {"voice": "marin"},
+            "output": {
+                "voice": "marin",
+            }
         },
-        "output_modalities": ["audio"],
     }
 
 
 @router.post("/api/voice-avatar/realtime-call")
 async def create_layan_realtime_call(request: Request) -> Response:
-    """Server-proxied WebRTC handshake for Layan.
-
-    The browser sends its SDP offer here. The server forwards it as the
-    multipart/form-data request required by the current Realtime Calls API,
-    keeping the permanent OpenAI API key entirely server-side.
-    """
+    """Server-proxied WebRTC handshake for Layan."""
     api_key = os.getenv("OPENAI_API_KEY", "").strip()
     if not api_key:
-        raise HTTPException(status_code=503, detail="Voice service is not configured: OPENAI_API_KEY is missing on the server.")
+        raise HTTPException(
+            status_code=503,
+            detail="Voice service is not configured: OPENAI_API_KEY is missing on the server.",
+        )
 
     sdp = (await request.body()).decode("utf-8", errors="replace").strip()
     if not sdp:
         raise HTTPException(status_code=400, detail="Missing WebRTC SDP offer.")
 
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Accept": "application/sdp",
-    }
+    # OpenAI's current unified WebRTC interface expects the SDP and session
+    # configuration as multipart/form-data and a standard server-side API key.
     files = {
         "sdp": ("offer.sdp", sdp, "application/sdp"),
-        "session": (None, __import__("json").dumps(_realtime_session()), "application/json"),
+        "session": (None, json.dumps(_realtime_session()), "application/json"),
+    }
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "OpenAI-Safety-Identifier": "company-ai-public",
     }
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(OPENAI_REALTIME_CALLS_URL, headers=headers, files=files)
+            response = await client.post(
+                OPENAI_REALTIME_CALLS_URL,
+                headers=headers,
+                files=files,
+            )
     except httpx.HTTPError as exc:
-        raise HTTPException(status_code=502, detail=f"Voice provider connection failed: {exc.__class__.__name__}") from exc
+        raise HTTPException(
+            status_code=502,
+            detail=f"Voice provider connection failed: {exc.__class__.__name__}",
+        ) from exc
 
     if response.status_code >= 400:
-        raise HTTPException(status_code=502, detail=f"Realtime provider returned HTTP {response.status_code}: {response.text[:500]}")
+        # Keep the real provider status visible so future configuration/API
+        # errors are diagnosable instead of being hidden behind a generic 502.
+        detail = response.text[:1000]
+        raise HTTPException(
+            status_code=response.status_code,
+            detail=f"Realtime provider error: HTTP {response.status_code}: {detail}",
+        )
 
     answer_sdp = response.text.strip()
     if not answer_sdp:
-        raise HTTPException(status_code=502, detail="Realtime provider returned an empty SDP answer.")
+        raise HTTPException(
+            status_code=502,
+            detail="Realtime provider returned an empty SDP answer.",
+        )
 
     return Response(content=answer_sdp, media_type="application/sdp")
 
 
 @router.post("/api/voice-avatar/public-session")
 async def create_layan_realtime_session():
-    # Kept for compatibility with older Company AI clients. The active v12
-    # browser flow uses /realtime-call instead, so the permanent API key never
-    # reaches the browser.
+    # Kept for compatibility with older Company AI clients.
     api_key = os.getenv("OPENAI_API_KEY", "").strip()
     if not api_key:
-        raise HTTPException(status_code=503, detail="Voice service is not configured yet: OPENAI_API_KEY is missing on the server.")
+        raise HTTPException(
+            status_code=503,
+            detail="Voice service is not configured yet: OPENAI_API_KEY is missing on the server.",
+        )
 
     payload = {
         "expires_after": {"anchor": "created_at", "seconds": 600},
         "session": _realtime_session(),
     }
-    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "OpenAI-Safety-Identifier": "company-ai-public",
+    }
 
     try:
         async with httpx.AsyncClient(timeout=20.0) as client:
-            response = await client.post("https://api.openai.com/v1/realtime/client_secrets", headers=headers, json=payload)
+            response = await client.post(
+                "https://api.openai.com/v1/realtime/client_secrets",
+                headers=headers,
+                json=payload,
+            )
     except httpx.HTTPError as exc:
-        raise HTTPException(status_code=502, detail=f"Voice provider connection failed: {exc.__class__.__name__}") from exc
+        raise HTTPException(
+            status_code=502,
+            detail=f"Voice provider connection failed: {exc.__class__.__name__}",
+        ) from exc
 
     if response.status_code >= 400:
         try:
             detail = response.json()
         except Exception:
-            detail = response.text[:500]
-        raise HTTPException(status_code=502, detail={"provider_status": response.status_code, "provider_error": detail})
+            detail = response.text[:1000]
+        raise HTTPException(
+            status_code=response.status_code,
+            detail={"provider_status": response.status_code, "provider_error": detail},
+        )
 
     data = response.json()
     value = data.get("value")
     if not isinstance(value, str) or not value.startswith("ek_"):
-        raise HTTPException(status_code=502, detail="Voice provider returned an invalid ephemeral client secret.")
+        raise HTTPException(
+            status_code=502,
+            detail="Voice provider returned an invalid ephemeral client secret.",
+        )
 
-    return {"value": value, "expires_at": data.get("expires_at"), "session": data.get("session", {}), "model": REALTIME_MODEL}
+    return {
+        "value": value,
+        "expires_at": data.get("expires_at"),
+        "session": data.get("session", {}),
+        "model": REALTIME_MODEL,
+    }
 
 
-# main.py imports this router before creating its FastAPI app, but the historical
-# main.py did not include the router. Automatically attach it only to the Company AI
-# app so the endpoint works regardless of whether Render starts main.py or realtime_entry.py.
+# main.py imports this router before creating its FastAPI app. Attach it to the
+# Company AI app so the endpoint works regardless of the Render entrypoint.
 _original_fastapi_init = FastAPI.__init__
 
 
