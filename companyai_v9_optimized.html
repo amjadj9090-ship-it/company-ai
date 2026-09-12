@@ -103,7 +103,8 @@ function readSecurityLog(){try{return JSON.parse(localStorage.getItem(OWNER_GATE
 function ownerGate(action,approvedByOwner=false){if(SENSITIVE_ACTIONS.includes(action)&&!approvedByOwner){requestOwnerApproval(action);return false}return true}
 function refreshCentralDashboard(){const crm=(()=>{try{return JSON.parse(localStorage.getItem('company_ai_crm_v1')||'[]')}catch(e){return[]}})();const pending=(()=>{try{return JSON.parse(localStorage.getItem(OWNER_PENDING_KEY)||'[]').filter(x=>x.status==='pending')}catch(e){return[]}})();const log=readSecurityLog();const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v};set('dashClients',crm.length);set('dashPending',pending.length);set('dashSecurity',log.length);set('dashOperational','🟢 يعمل ضمن الصلاحيات المحددة — العمليات الحساسة مقفلة حتى موافقة المالك.');const box=document.getElementById('securityLog');if(box)box.innerHTML=log.length?log.slice().reverse().map(x=>'<div style="padding:8px 0;border-bottom:1px solid #e5eaf0"><b>'+String(x.action).replace(/[<>]/g,'')+'</b> — '+String(x.result).replace(/[<>]/g,'')+'<br><small>'+new Date(x.time).toLocaleString()+'</small></div>').join(''):'<p>لا توجد أحداث مسجلة.</p>'}
 window.requestOwnerApproval=requestOwnerApproval;window.ownerGate=ownerGate;window.refreshCentralDashboard=refreshCentralDashboard;document.addEventListener('DOMContentLoaded',refreshCentralDashboard);
-</script><script id="company-ai-layan-model2-js">
+
+
 (function(){
   var originalOpen=null,originalClose=null,session=null,host=null,stage=null,oldParent=null,oldNext=null,watcher=null;
   function makeSession(){
@@ -120,6 +121,7 @@ window.requestOwnerApproval=requestOwnerApproval;window.ownerGate=ownerGate;wind
   function install(){if(window.__companyAiLayanModel2Installed)return;window.__companyAiLayanModel2Installed=true;originalOpen=window.openLayanVoice;originalClose=window.closeLayanVoice;if(typeof originalOpen==='function')window.openLayanVoice=function(){startSession()};if(typeof originalClose==='function')window.closeLayanVoice=function(){endSession(false);try{originalClose()}catch(e){}};document.addEventListener('click',function(e){var b=e.target.closest('.layanChoice.voiceChoice,.layanQuickVoice');if(b){e.preventDefault();e.stopImmediatePropagation();startSession()}},true)}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
 })();
+
 </script></body>
 <!-- company-ai-build: layan-voice-model-2-live-session-2026-09-12 -->
 </html>
