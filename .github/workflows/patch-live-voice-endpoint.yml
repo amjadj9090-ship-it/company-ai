@@ -1,0 +1,38 @@
+name: Patch live Layan voice endpoint
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/app/main.py'
+      - '.github/workflows/patch-live-voice-endpoint.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Replace legacy public voice endpoint with Realtime client-secret endpoint
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('backend/app/main.py')
+          s=p.read_text(encoding='utf-8')
+          marker='# COMPANY-AI-LIVE-REALTIME-ENDPOINT-V1'
+          if marker in s:
+              print('Already patched')
+              raise SystemExit(0)
+          start=s.index("@app.post('/api/voice-avatar/public-session')")
+          end=s.index("@app.post('/api/voice-avatar/sessions')", start)
+          replacement='''# COMPANY-AI-LIVE-REALTIME-ENDPOINT-V1\n@app.post('/api/voice-avatar/public-session')\nasync def create_public_voice_session(request:Request):\n    import httpx\n    api_key=os.getenv('OPENAI_API_KEY','').strip()\n    if not api_key:\n        raise HTTPException(503,'Voice service is not configured: OPENAI_API_KEY is missing on the server.')\n    model=os.getenv('REALTIME_MODEL','gpt-realtime-2.1')\n    payload={\n        'expires_after':{'anchor':'created_at','seconds':600},\n        'session':{\n            'type':'realtime','model':model,\n            'instructions':('You are Layan, the live voice AI assistant for Company AI. Detect the visitor language automatically. For Arabic, use clear Syrian/Levantine Arabic and never Egyptian phrasing. Speak naturally, warmly, concisely and professionally. Owner approval is required before sensitive commitments such as transfers, withdrawals, signing contracts, or non-standard binding commitments. You may discuss, qualify leads and prepare drafts, but never claim a sensitive commitment was finalized without owner approval.'),\n            'audio':{\n                'input':{'turn_detection':{'type':'semantic_vad','create_response':True,'interrupt_response':True},'transcription':{'model':'gpt-4o-transcribe'}},\n                'output':{'voice':'marin'}\n            },\n            'output_modalities':['audio']\n        }\n    }\n    try:\n        async with httpx.AsyncClient(timeout=20.0) as client:\n            r=await client.post('https://api.openai.com/v1/realtime/client_secrets',headers={'Authorization':f'Bearer {api_key}','Content-Type':'application/json'},json=payload)\n    except httpx.HTTPError as exc:\n        raise HTTPException(502,f'Voice provider connection failed: {exc.__class__.__name__}') from exc\n    if r.status_code>=400:\n        try: detail=r.json()\n        except Exception: detail=r.text[:500]\n        raise HTTPException(502,{'provider_status':r.status_code,'provider_error':detail})\n    data=r.json(); value=data.get('value')\n    if not isinstance(value,str) or not value.startswith('ek_'):\n        raise HTTPException(502,'Voice provider returned an invalid ephemeral client secret.')\n    return {'value':value,'expires_at':data.get('expires_at'),'session':data.get('session',{}),'model':model}\n\n'''
+          p.write_text(s[:start]+replacement+s[end:],encoding='utf-8')
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add backend/app/main.py
+          git diff --cached --quiet || git commit -m 'Fix live Layan Realtime backend endpoint'
+          git push
