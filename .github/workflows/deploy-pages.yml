@@ -6,6 +6,7 @@ on:
     paths:
       - 'frontend/**'
       - 'companyai_v9_optimized.html'
+      - 'assets/**'
       - '.github/workflows/deploy-pages.yml'
   workflow_dispatch:
 
@@ -37,6 +38,10 @@ jobs:
         run: |
           set -e
           test -s companyai_v9_optimized.html
+          test -s assets/layan-office.webp.txt
+          mkdir -p frontend/assets
+          base64 -d assets/layan-office.webp.txt > frontend/assets/layan-office.webp
+          test -s frontend/assets/layan-office.webp
           cp companyai_v9_optimized.html frontend/index.html
           python3 - <<'PY'
           from pathlib import Path
@@ -47,6 +52,8 @@ jobs:
           s=s.replace("function escapeHtml(s){return s.replace(", "function escapeHtml(s){return String(s??'').replace(")
           s=s.replace("u.rate=.94;u.pitch=1.02;", "u.rate=.90;u.pitch=1.00;")
           s=s.replace('<footer class="footer"><div class="wrap"><a href="admin.html" style="color:inherit">دخول إدارة Company AI</a> · <div class="wrap">© 2026 COMPANY AI — Digital • AI • Global Business</div></footer>', '<footer class="footer"><div class="wrap"><a href="admin.html" style="color:inherit">دخول إدارة Company AI</a> · © 2026 COMPANY AI — Digital • AI • Global Business</div></footer>')
+          s,n=re.subn(r'(<img\s+class="layanVoicePortrait"\s+src=")[^"]+("[^>]*>)', r'\1assets/layan-office.webp\2', s, count=1)
+          if n!=1: raise SystemExit(f'Expected one Layan voice portrait image, replaced {n}')
 
           css='''
           <style id="company-ai-layan-live-fix">
@@ -69,30 +76,18 @@ jobs:
             function ready(){
               try{
                 document.querySelectorAll('.layanChoice.textChoice,.layanQuickText').forEach(function(b){
-                  b.addEventListener('click',function(e){
-                    e.preventDefault();
-                    if(typeof window.openAI==='function')window.openAI();
-                  },{passive:false});
+                  b.addEventListener('click',function(e){e.preventDefault();if(typeof window.openAI==='function')window.openAI();},{passive:false});
                 });
                 document.querySelectorAll('.layanChoice.voiceChoice,.layanQuickVoice').forEach(function(b){
-                  b.addEventListener('click',function(e){
-                    e.preventDefault();
-                    if(typeof window.openLayanVoice==='function')window.openLayanVoice();
-                  },{passive:false});
+                  b.addEventListener('click',function(e){e.preventDefault();if(typeof window.openLayanVoice==='function')window.openLayanVoice();},{passive:false});
                 });
                 var hero=document.querySelector('.layanWelcome');
                 if(hero&&!hero.querySelector('.layanLanguagePill')){
-                  var p=document.createElement('div');
-                  p.className='layanLanguagePill';
-                  p.id='layanLanguagePill';
-                  hero.appendChild(p);
+                  var p=document.createElement('div');p.className='layanLanguagePill';p.id='layanLanguagePill';hero.appendChild(p);
                 }
                 var names={ar:'العربية',en:'English',fr:'Français',de:'Deutsch',es:'Español',it:'Italiano',pt:'Português',tr:'Türkçe',nl:'Nederlands',zh:'中文',ru:'Русский',ja:'日本語',ko:'한국어'};
                 var p=document.getElementById('layanLanguagePill');
-                if(p){
-                  var code=(document.documentElement.lang||'en').split('-')[0];
-                  p.textContent='🌐 '+(names[code]||code);
-                }
+                if(p){var code=(document.documentElement.lang||'en').split('-')[0];p.textContent='🌐 '+(names[code]||code);}
                 if(typeof window.applyLang==='function')window.applyLang();
               }catch(e){console.warn('Company AI Layan live fix',e);}
             }
@@ -100,10 +95,9 @@ jobs:
           })();
           '''
           marker='/* Company AI Layan live-runtime repair */'
-          if marker not in s:
-              s=s.replace('</script>', runtime+'</script>', 1)
+          if marker not in s:s=s.replace('</script>', runtime+'</script>', 1)
           s=s.replace('@media (prefers-reduced-motion:reduce){.layanVoicePortraitWrap,.layanEye,.layanBlink,.layanMouthRig,.layanHeadHint{animation:none!important}}','')
-          s += '\n<!-- company-ai-build: layan-live-2026-09-12 -->\n'
+          s += '\n<!-- company-ai-build: layan-office-image-2026-09-12 -->\n'
           p.write_text(s,encoding='utf-8')
           scripts=re.findall(r'<script[^>]*>(.*?)</script>',s,re.S|re.I)
           if len(scripts)!=2: raise SystemExit(f'Expected two script blocks, got {len(scripts)}')
@@ -113,10 +107,11 @@ jobs:
           node --check /tmp/company_ai_1.js
           node --check /tmp/company_ai_2.js
           grep -q 'layanVoiceStage' frontend/index.html
+          grep -q 'assets/layan-office.webp' frontend/index.html
           grep -q 'startLayanVoice' frontend/index.html
           grep -q 'owner-dashboard' frontend/index.html
           grep -q 'company_ai_crm_v1' frontend/index.html
-          grep -q 'company-ai-build: layan-live-2026-09-12' frontend/index.html
+          grep -q 'company-ai-build: layan-office-image-2026-09-12' frontend/index.html
 
       - name: Upload frontend
         uses: actions/upload-pages-artifact@v4
