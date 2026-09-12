@@ -50,18 +50,19 @@ jobs:
           p=Path('frontend/index.html'); s=p.read_text(encoding='utf-8')
           for tag in ['<script src="layan-realtime-ga-fix.js"></script>','<script src="layan-realtime-hotfix.js"></script>']:
               s=s.replace(tag,'')
-          s=s.replace('</body>','<script src="layan-realtime-hotfix.js?v=20260912-v5"></script>\n</body>',1)
-          s += '\n<!-- company-ai-build: layan-realtime-hotfix-v5-webrtc-formdata-2026-09-12 -->\n'
+          s=s.replace('</body>','<script src="layan-realtime-hotfix.js?v=20260912-v6"></script>\n</body>',1)
+          s += '\n<!-- company-ai-build: layan-realtime-hotfix-v6-capture-2026-09-12 -->\n'
           p.write_text(s,encoding='utf-8')
           PY
           node --check frontend/layan-realtime-hotfix.js
-          grep -q 'layan-realtime-hotfix.js?v=20260912-v5' frontend/index.html
+          grep -q 'layan-realtime-hotfix.js?v=20260912-v6' frontend/index.html
           ! grep -q 'layan-realtime-ga-fix.js' frontend/index.html
           grep -q 'company-ai-0mya.onrender.com' frontend/layan-realtime-hotfix.js
           grep -q 'v1/realtime/calls' frontend/layan-realtime-hotfix.js
           grep -q 'new FormData' frontend/layan-realtime-hotfix.js
           grep -q "fd.append('sdp'" frontend/layan-realtime-hotfix.js
           grep -q "fd.append('session'" frontend/layan-realtime-hotfix.js
+          grep -q 'stopImmediatePropagation' frontend/layan-realtime-hotfix.js
           grep -q 'semantic_vad' frontend/layan-realtime-hotfix.js
           grep -q 'interrupt_response' frontend/layan-realtime-hotfix.js
       - name: Upload frontend
