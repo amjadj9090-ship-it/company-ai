@@ -5,7 +5,6 @@ on:
     branches: [main]
     paths:
       - 'companyai_v9_optimized.html'
-      - 'frontend/layan-realtime-ga-fix.js'
       - 'frontend/layan-realtime-hotfix.js'
       - 'layan-realtime-ga.trigger'
       - '.github/workflows/deploy-layan-realtime-ga.yml'
@@ -37,7 +36,6 @@ jobs:
         run: |
           set -e
           test -s companyai_v9_optimized.html
-          test -s frontend/layan-realtime-ga-fix.js
           test -s frontend/layan-realtime-hotfix.js
           mkdir -p frontend/assets
           python3 - <<'PY'
@@ -52,14 +50,13 @@ jobs:
           p=Path('frontend/index.html'); s=p.read_text(encoding='utf-8')
           for tag in ['<script src="layan-realtime-ga-fix.js"></script>','<script src="layan-realtime-hotfix.js"></script>']:
               s=s.replace(tag,'')
-          s=s.replace('</body>','<script src="layan-realtime-ga-fix.js"></script>\n<script src="layan-realtime-hotfix.js"></script>\n</body>',1)
-          s += '\n<!-- company-ai-build: layan-realtime-hotfix-v4-verified-2026-09-12 -->\n'
+          s=s.replace('</body>','<script src="layan-realtime-hotfix.js?v=20260912"></script>\n</body>',1)
+          s += '\n<!-- company-ai-build: layan-realtime-hotfix-v5-single-handler-2026-09-12 -->\n'
           p.write_text(s,encoding='utf-8')
           PY
-          node --check frontend/layan-realtime-ga-fix.js
           node --check frontend/layan-realtime-hotfix.js
-          grep -q 'layan-realtime-hotfix.js' frontend/index.html
-          grep -q 'layan-realtime-hotfix-v4-verified-2026-09-12' frontend/index.html
+          grep -q 'layan-realtime-hotfix.js?v=20260912' frontend/index.html
+          ! grep -q 'layan-realtime-ga-fix.js' frontend/index.html
           grep -q 'company-ai-0mya.onrender.com' frontend/layan-realtime-hotfix.js
           grep -q 'v1/realtime/calls' frontend/layan-realtime-hotfix.js
           grep -q 'semantic_vad' frontend/layan-realtime-hotfix.js
