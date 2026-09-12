@@ -1,0 +1,59 @@
+name: Wire Layan Realtime into Render main app
+
+on:
+  push:
+    paths:
+      - "layan-render-wire.trigger"
+      - ".github/workflows/wire-layan-realtime-into-main.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  wire:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch existing Render entrypoint
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('backend/app/main.py')
+          s = p.read_text(encoding='utf-8')
+          import_line = 'from .realtime_routes import router as layan_realtime_router'
+          include_line = 'app.include_router(layan_realtime_router)'
+          if import_line not in s:
+              marker = 'from pydantic import BaseModel,Field,EmailStr\n'
+              if marker in s:
+                  s = s.replace(marker, marker + import_line + '\n', 1)
+              else:
+                  s = import_line + '\n' + s
+          if include_line not in s:
+              s += '\n\n' + include_line + '\n'
+          p.write_text(s, encoding='utf-8')
+          PY
+
+      - name: Validate Python files
+        run: |
+          python -m py_compile backend/app/main.py backend/app/realtime_routes.py
+          grep -q "realtime_routes" backend/app/main.py
+          grep -q "/api/voice-avatar/public-session" backend/app/realtime_routes.py
+
+      - name: Commit patched entrypoint
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add backend/app/main.py backend/app/realtime_routes.py
+          if git diff --cached --quiet; then
+            echo "No changes needed"
+          else
+            git commit -m "Wire Layan Realtime route into Render entrypoint"
+            git push
+          fi
