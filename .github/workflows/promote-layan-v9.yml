@@ -1,0 +1,33 @@
+name: Promote Company AI v9
+
+on:
+  push:
+    paths:
+      - 'companyai_v9_optimized.html'
+      - '.github/workflows/promote-layan-v9.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Promote optimized v9 to frontend/index.html
+        run: cp companyai_v9_optimized.html frontend/index.html
+
+      - name: Commit promoted frontend
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/index.html
+          if git diff --cached --quiet; then
+            echo "No frontend change to commit."
+          else
+            git commit -m "Promote Company AI v9 to frontend index"
+            git push
+          fi
