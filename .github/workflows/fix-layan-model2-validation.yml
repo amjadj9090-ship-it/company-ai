@@ -1,0 +1,42 @@
+name: Fix Layan Model 2 Validation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'layan-model2-fix.trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Merge Model 2 into the existing script block
+        shell: python
+        run: |
+          from pathlib import Path
+          import re, subprocess
+          p=Path('companyai_v9_optimized.html')
+          s=p.read_text(encoding='utf-8')
+          pat=re.compile(r'<script id="company-ai-layan-model2-js">(.*?)</script>',re.S)
+          m=pat.search(s)
+          if not m:
+              print('Model 2 script not found; nothing to do')
+              raise SystemExit(0)
+          body=m.group(1)
+          s=s[:m.start()]+s[m.end():]
+          scripts=list(re.finditer(r'<script[^>]*>(.*?)</script>',s,re.S|re.I))
+          if len(scripts)<2:
+              raise SystemExit(f'Expected at least 2 script blocks after removal, got {len(scripts)}')
+          target=scripts[-1]
+          close_pos=target.end()-len('</script>')
+          s=s[:close_pos]+'\n'+body+'\n'+s[close_pos:]
+          p.write_text(s,encoding='utf-8')
+          subprocess.run(['git','config','user.name','company-ai-bot'],check=True)
+          subprocess.run(['git','config','user.email','41898282+github-actions[bot]@users.noreply.github.com'],check=True)
+          subprocess.run(['git','add','companyai_v9_optimized.html'],check=True)
+          subprocess.run(['git','commit','-m','Merge Layan Voice Model 2 into runtime script'],check=True)
+          subprocess.run(['git','push'],check=True)
