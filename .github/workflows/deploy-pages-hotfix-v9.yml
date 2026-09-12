@@ -1,0 +1,59 @@
+name: Deploy Company AI Pages v9 hotfix
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/layan-realtime-hotfix.js'
+      - '.github/workflows/deploy-pages-hotfix-v9.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Prepare hotfix frontend
+        run: |
+          set -e
+          test -s frontend/index.html
+          test -s frontend/layan-realtime-hotfix.js
+          mkdir -p frontend/assets
+          python3 - <<'PY'
+          import base64,re
+          from pathlib import Path
+          raw=Path('assets/layan-office.webp.txt').read_text(encoding='utf-8')
+          raw=re.sub(r'[^A-Za-z0-9+/=]', '', raw)
+          raw += '='*((-len(raw))%4)
+          data=base64.b64decode(raw, validate=False)
+          if not data.startswith(b'RIFF') or b'WEBP' not in data[:16]: raise SystemExit('Invalid Layan office image data')
+          Path('frontend/assets/layan-office.webp').write_bytes(data)
+          PY
+          sed -i 's/layan-realtime-hotfix.js?v=20260912-v8/layan-realtime-hotfix.js?v=20260912-v9/g' frontend/index.html
+          grep -q 'layan-realtime-hotfix.js?v=20260912-v9' frontend/index.html
+          node --check frontend/layan-realtime-hotfix.js
+          grep -q 'RTCPeerConnection' frontend/layan-realtime-hotfix.js
+          grep -q 'getUserMedia' frontend/layan-realtime-hotfix.js
+          grep -q '/v1/realtime/calls' frontend/layan-realtime-hotfix.js
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: './frontend'
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
