@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'frontend/**'
+      - 'companyai_v9_optimized.html'
       - '.github/workflows/deploy-pages.yml'
   workflow_dispatch:
 
@@ -32,6 +33,16 @@ jobs:
         with:
           enablement: true
 
+      - name: Build Pages artifact from the latest Company AI frontend
+        run: |
+          set -e
+          test -s companyai_v9_optimized.html
+          cp companyai_v9_optimized.html frontend/index.html
+          grep -q 'layanVoiceStage' frontend/index.html
+          grep -q 'startLayanVoice' frontend/index.html
+          grep -q 'owner-dashboard' frontend/index.html
+          grep -q 'company_ai_crm_v1' frontend/index.html
+
       - name: Upload frontend
         uses: actions/upload-pages-artifact@v4
         with:
@@ -40,5 +51,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
-      # Sync deployment trigger to the current main revision (b7ab46d and descendants)
