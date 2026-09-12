@@ -49,16 +49,16 @@ jobs:
           p=Path('frontend/index.html'); s=p.read_text(encoding='utf-8')
           tag='<script src="layan-realtime-ga-fix.js"></script>'
           if tag not in s: s=s.replace('</body>',tag+'\n</body>',1)
-          s += '\n<!-- company-ai-build: layan-ga-realtime-verified-v2-2026-09-12 -->\n'
+          s += '\n<!-- company-ai-build: layan-ga-realtime-verified-v3-2026-09-12 -->\n'
           p.write_text(s,encoding='utf-8')
           PY
           node --check frontend/layan-realtime-ga-fix.js
-          grep -q 'layan-ga-realtime-verified-v2-2026-09-12' frontend/index.html
+          grep -q 'layan-ga-realtime-verified-v3-2026-09-12' frontend/index.html
           grep -q 'api/voice-avatar/public-session' frontend/layan-realtime-ga-fix.js
           grep -q 'v1/realtime/calls' frontend/layan-realtime-ga-fix.js
           grep -q 'semantic_vad' frontend/layan-realtime-ga-fix.js
           grep -q 'interrupt_response' frontend/layan-realtime-ga-fix.js
-          grep -q 'company-ai-free-beta.onrender.com' frontend/layan-realtime-ga-fix.js
+          grep -q 'company-ai-0mya.onrender.com' frontend/layan-realtime-ga-fix.js
       - name: Upload frontend
         uses: actions/upload-pages-artifact@v4
         with:
