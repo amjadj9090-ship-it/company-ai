@@ -1,4 +1,4 @@
-name: Deploy Company AI Pages v9b
+name: Deploy Company AI Pages v10
 
 on:
   push:
@@ -50,10 +50,10 @@ jobs:
           p=Path('frontend/index.html')
           s=p.read_text(encoding='utf-8')
           s=re.sub(r'<script[^>]+layan-realtime-hotfix\.js\?v=[^"\']+["\'][^>]*></script>\s*','',s,flags=re.I)
-          s=s.replace('</body>','<script src="layan-realtime-hotfix.js?v=20260912-v9"></script>\n</body>',1)
+          s=s.replace('</body>','<script src="layan-realtime-hotfix.js?v=20260912-v10"></script>\n</body>',1)
           p.write_text(s,encoding='utf-8')
           PY
-          grep -q 'layan-realtime-hotfix.js?v=20260912-v9' frontend/index.html
+          grep -q 'layan-realtime-hotfix.js?v=20260912-v10' frontend/index.html
           node --check frontend/layan-realtime-hotfix.js
           grep -q 'RTCPeerConnection' frontend/layan-realtime-hotfix.js
           grep -q 'getUserMedia' frontend/layan-realtime-hotfix.js
