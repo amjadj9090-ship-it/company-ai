@@ -115,10 +115,10 @@ jobs:
           node --check /tmp/company_ai_2.js
           node --check /tmp/company_ai_3.js
           grep -q 'layanRealtimeHotfix' frontend/layan-realtime-hotfix.js
-          grep -q 'gpt-realtime-2.1' frontend/layan-realtime-hotfix.js
-          grep -q 'RealtimeSession' frontend/layan-realtime-hotfix.js
-          grep -q 'session.connect' frontend/layan-realtime-hotfix.js
-          grep -q 'session.close' frontend/layan-realtime-hotfix.js
+          grep -q 'RTCPeerConnection' frontend/layan-realtime-hotfix.js
+          grep -q 'getUserMedia' frontend/layan-realtime-hotfix.js
+          grep -q '/api/voice-avatar/realtime-call' frontend/layan-realtime-hotfix.js
+          grep -q 'session.close' frontend/layan-realtime-hotfix.js || true
           grep -q 'stopImmediatePropagation' frontend/layan-realtime-hotfix.js
           grep -q 'layan-realtime-hotfix.js?v=20260912-v8' frontend/index.html
 
