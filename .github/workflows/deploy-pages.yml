@@ -60,23 +60,28 @@ jobs:
           s=s.replace("applyLang();setTimeout(()=>{if(!sessionStorage.getItem('company_ai_intro_seen')){openAI();sessionStorage.setItem('company_ai_intro_seen','1')}},900);", "applyLang();")
           s=s.replace("function escapeHtml(s){return s.replace(", "function escapeHtml(s){return String(s??'').replace(")
           s=s.replace("u.rate=.94;u.pitch=1.02;", "u.rate=.90;u.pitch=1.00;")
-          s=s.replace('<footer class="footer"><div class="wrap"><a href="admin.html" style="color:inherit">دخول إدارة Company AI</a> · <div class="wrap">© 2026 COMPANY AI — Digital • AI • Global Business</div></footer>', '<footer class="footer"><div class="wrap"><a href="admin.html" style="color:inherit">دخول إدارة Company AI</a> · © 2026 COMPANY AI — Digital • AI • Global Business</div></footer>')
+          s=s.replace("<footer class=\"footer\"><div class=\"wrap\"><a href=\"admin.html\" style=\"color:inherit\">دخول إدارة Company AI</a> · <div class=\"wrap\">© 2026 COMPANY AI — Digital • AI • Global Business</div></footer>", "<footer class=\"footer\"><div class=\"wrap\"><a href=\"admin.html\" style=\"color:inherit\">دخول إدارة Company AI</a> · © 2026 COMPANY AI — Digital • AI • Global Business</div></footer>")
           office_css='''
           <style id="company-ai-layan-two-image-fix">
-          .layanOfficePortrait{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;pointer-events:none;transition:opacity .28s ease,transform .28s ease;transform:scale(.995);filter:drop-shadow(0 30px 60px rgba(0,0,0,.5));z-index:2}
-          .layanVoiceStage.speaking .layanOfficePortrait{opacity:1;transform:scale(1)}
-          .layanVoiceStage.speaking .layanVoicePortrait{opacity:0}
-          .layanVoicePortrait{transition:opacity .28s ease,transform .25s}
+          /* Clean full replacement: one portrait is visible at a time. No overlay, blur or transform during the swap. */
+          .layanVoicePortraitWrap{position:relative!important;overflow:hidden!important;isolation:isolate!important}
+          .layanVoicePortrait,.layanOfficePortrait{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;max-width:none!important;object-fit:contain!important;object-position:center center!important;transform:none!important;transition:none!important;pointer-events:none!important}
+          .layanVoicePortrait{opacity:1!important;visibility:visible!important;z-index:1!important}
+          .layanOfficePortrait{opacity:0!important;visibility:hidden!important;z-index:2!important}
+          .layanVoiceStage.speaking .layanVoicePortrait{opacity:0!important;visibility:hidden!important;animation:none!important}
+          .layanVoiceStage.speaking .layanOfficePortrait{opacity:1!important;visibility:visible!important;animation:none!important}
+          .layanVoiceStage:not(.speaking) .layanOfficePortrait{opacity:0!important;visibility:hidden!important}
+          .layanVoiceStage:not(.speaking) .layanVoicePortrait{opacity:1!important;visibility:visible!important}
           </style>
           '''
           s=s.replace('</head>', office_css+'\n</head>', 1)
-          needle='class="layanVoicePortrait"'
           m=re.search(r'<img\s+class="layanVoicePortrait"[^>]*>',s)
           if not m: raise SystemExit('Main Layan voice portrait image not found')
           main_img=m.group(0)
           if 'assets/layan-office.webp' in main_img: raise SystemExit('Main portrait was already replaced; refusing unsafe swap')
           office_img='<img class="layanOfficePortrait" src="assets/layan-office.webp" alt="Layan in the Company AI office" aria-hidden="true">'
-          s=s[:m.end()]+office_img+s[m.end():]
+          if 'class="layanOfficePortrait"' not in s:
+              s=s[:m.end()]+office_img+s[m.end():]
           runtime='''
           /* Company AI Layan live-runtime repair */
           (function(){
@@ -98,7 +103,7 @@ jobs:
           marker='/* Company AI Layan live-runtime repair */'
           if marker not in s:s=s.replace('</script>', runtime+'</script>', 1)
           s=s.replace('@media (prefers-reduced-motion:reduce){.layanVoicePortraitWrap,.layanEye,.layanBlink,.layanMouthRig,.layanHeadHint{animation:none!important}}','')
-          s += '\n<!-- company-ai-build: layan-two-images-speaking-swap-2026-09-12 -->\n'
+          s += '\n<!-- company-ai-build: layan-two-images-clean-replacement-2026-09-12 -->\n'
           p.write_text(s,encoding='utf-8')
           scripts=re.findall(r'<script[^>]*>(.*?)</script>',s,re.S|re.I)
           if len(scripts)!=2: raise SystemExit(f'Expected two script blocks, got {len(scripts)}')
@@ -114,7 +119,7 @@ jobs:
           grep -q 'startLayanVoice' frontend/index.html
           grep -q 'owner-dashboard' frontend/index.html
           grep -q 'company_ai_crm_v1' frontend/index.html
-          grep -q 'company-ai-build: layan-two-images-speaking-swap-2026-09-12' frontend/index.html
+          grep -q 'layan-two-images-clean-replacement-2026-09-12' frontend/index.html
 
       - name: Upload frontend
         uses: actions/upload-pages-artifact@v4
