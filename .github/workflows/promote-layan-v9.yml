@@ -38,6 +38,30 @@ jobs:
           p.write_text(s,encoding='utf-8')
           PY
 
+      - name: Repair async JavaScript declarations
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('companyai_v9_optimized.html')
+          s=p.read_text(encoding='utf-8')
+          # Several frontend handlers use await. A normal function declaration
+          # containing await is a SyntaxError and stops the entire main script.
+          # Convert every function whose body contains await into an async function.
+          matches=list(re.finditer(r'(?<!async )function\\s+([A-Za-z0-9_$]+)\\s*\\([^)]*\\)\\s*\\{',s))
+          for m in reversed(matches):
+              start=m.end(); depth=1; i=start; found=False
+              while i<len(s) and depth:
+                  if s[i]=='{': depth+=1
+                  elif s[i]=='}': depth-=1
+                  i+=1
+              if depth==0 and 'await ' in s[start:i-1]:
+                  prefix=s[:m.start()]
+                  if not prefix.endswith('async '):
+                      s=s[:m.start()]+'async '+s[m.start():]
+          p.write_text(s,encoding='utf-8')
+          PY
+
       - name: Restore early browser language bootstrap
         run: |
           python3 - <<'PY'
