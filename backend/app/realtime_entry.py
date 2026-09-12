@@ -5,15 +5,16 @@ import os
 import urllib.error
 import urllib.request
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
+from fastapi.responses import JSONResponse
 
 from .main import app
 
 OPENAI_REALTIME_CLIENT_SECRETS = "https://api.openai.com/v1/realtime/client_secrets"
+ALLOWED_WEB_ORIGIN = "https://amjadj9090-ship-it.github.io"
 
 
-@app.post("/api/voice-avatar/public-session")
-def create_layan_realtime_client_secret():
+def _create_layan_realtime_client_secret():
     api_key = os.getenv("OPENAI_API_KEY", "").strip()
     if not api_key:
         raise HTTPException(status_code=503, detail="Realtime voice service is not configured on the backend.")
@@ -73,4 +74,33 @@ def create_layan_realtime_client_secret():
     value = data.get("value")
     if not isinstance(value, str) or not value.startswith("ek_"):
         raise HTTPException(status_code=502, detail="Realtime provider returned no valid ephemeral client secret.")
-    return {"value": value, "expires_at": data.get("expires_at"), "session": data.get("session", {})}
+    return {"value": value, "expires_at": data.get("expires_at"), "session": data.get("session", {}), "model": model}
+
+
+# IMPORTANT: main.py contains an older public-session route. This middleware runs before routing
+# so the old database-only response can never shadow the real Realtime client-secret flow.
+@app.middleware("http")
+async def layan_realtime_override(request: Request, call_next):
+    if request.method == "POST" and request.url.path == "/api/voice-avatar/public-session":
+        try:
+            result = _create_layan_realtime_client_secret()
+            response = JSONResponse(result, status_code=200)
+            origin = request.headers.get("origin")
+            if origin == ALLOWED_WEB_ORIGIN:
+                response.headers["Access-Control-Allow-Origin"] = origin
+                response.headers["Vary"] = "Origin"
+            return response
+        except HTTPException as exc:
+            response = JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
+            origin = request.headers.get("origin")
+            if origin == ALLOWED_WEB_ORIGIN:
+                response.headers["Access-Control-Allow-Origin"] = origin
+                response.headers["Vary"] = "Origin"
+            return response
+    return await call_next(request)
+
+
+# Keep the route visible in the OpenAPI/router map as well; the middleware above is authoritative.
+@app.post("/api/voice-avatar/realtime-session")
+def create_layan_realtime_session():
+    return _create_layan_realtime_client_secret()
