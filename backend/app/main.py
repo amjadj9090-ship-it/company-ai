@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import FileResponse, JSONResponse
 from pydantic import BaseModel,Field,EmailStr
+from .realtime_routes import router as layan_realtime_router
 import jwt
 from jwt import InvalidTokenError as JWTError
 from sqlalchemy import create_engine,String,Integer,DateTime,Text,select
@@ -1220,3 +1221,6 @@ def create_membership(x:MembershipIn,u=Depends(current_user),s:Session=Depends(d
     if u.role!='admin' and not allowed(u,'customers'): raise HTTPException(403,'Insufficient permission')
     data={**x.model_dump(),'status':'pending','recurring':True,'human_approval_required':True}
     e=add(s,'memberships',data); audit(s,u,'create_membership','memberships',e.id); s.commit(); return dict(data,id=e.id)
+
+
+app.include_router(layan_realtime_router)
