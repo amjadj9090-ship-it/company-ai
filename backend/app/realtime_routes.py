@@ -3,58 +3,98 @@ from __future__ import annotations
 import os
 
 import httpx
-from fastapi import APIRouter, FastAPI, HTTPException
+from fastapi import APIRouter, FastAPI, HTTPException, Request, Response
 
 router = APIRouter()
 
 REALTIME_MODEL = os.getenv("REALTIME_MODEL", "gpt-realtime-2.1")
+OPENAI_REALTIME_CALLS_URL = "https://api.openai.com/v1/realtime/calls"
 
 LAYAN_INSTRUCTIONS = """You are Layan, the voice AI assistant for Company AI. Speak naturally and warmly. Support the visitor's language automatically. When speaking Arabic, use Syrian/Levantine Arabic and do not use Egyptian phrasing. Keep answers clear and practical. Company AI owner approval is required before sensitive commitments such as transfers, withdrawals, signing contracts, or non-standard binding commitments. You may discuss, qualify leads, prepare quotes and drafts, but do not claim that a sensitive commitment was finalized without owner approval."""
 
 
+def _realtime_session() -> dict:
+    return {
+        "type": "realtime",
+        "model": REALTIME_MODEL,
+        "instructions": LAYAN_INSTRUCTIONS,
+        "audio": {
+            "input": {
+                "turn_detection": {
+                    "type": "server_vad",
+                    "threshold": 0.5,
+                    "prefix_padding_ms": 300,
+                    "silence_duration_ms": 200,
+                    "create_response": True,
+                    "interrupt_response": True,
+                },
+                "transcription": {"model": "gpt-4o-transcribe"},
+            },
+            "output": {"voice": "marin"},
+        },
+        "output_modalities": ["audio"],
+    }
+
+
+@router.post("/api/voice-avatar/realtime-call")
+async def create_layan_realtime_call(request: Request) -> Response:
+    """Server-proxied WebRTC handshake for Layan.
+
+    The browser sends its SDP offer here. The server forwards it as the
+    multipart/form-data request required by the current Realtime Calls API,
+    keeping the permanent OpenAI API key entirely server-side.
+    """
+    api_key = os.getenv("OPENAI_API_KEY", "").strip()
+    if not api_key:
+        raise HTTPException(status_code=503, detail="Voice service is not configured: OPENAI_API_KEY is missing on the server.")
+
+    sdp = (await request.body()).decode("utf-8", errors="replace").strip()
+    if not sdp:
+        raise HTTPException(status_code=400, detail="Missing WebRTC SDP offer.")
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Accept": "application/sdp",
+    }
+    files = {
+        "sdp": ("offer.sdp", sdp, "application/sdp"),
+        "session": (None, __import__("json").dumps(_realtime_session()), "application/json"),
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(OPENAI_REALTIME_CALLS_URL, headers=headers, files=files)
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"Voice provider connection failed: {exc.__class__.__name__}") from exc
+
+    if response.status_code >= 400:
+        raise HTTPException(status_code=502, detail=f"Realtime provider returned HTTP {response.status_code}: {response.text[:500]}")
+
+    answer_sdp = response.text.strip()
+    if not answer_sdp:
+        raise HTTPException(status_code=502, detail="Realtime provider returned an empty SDP answer.")
+
+    return Response(content=answer_sdp, media_type="application/sdp")
+
+
 @router.post("/api/voice-avatar/public-session")
 async def create_layan_realtime_session():
+    # Kept for compatibility with older Company AI clients. The active v12
+    # browser flow uses /realtime-call instead, so the permanent API key never
+    # reaches the browser.
     api_key = os.getenv("OPENAI_API_KEY", "").strip()
     if not api_key:
         raise HTTPException(status_code=503, detail="Voice service is not configured yet: OPENAI_API_KEY is missing on the server.")
 
     payload = {
         "expires_after": {"anchor": "created_at", "seconds": 600},
-        "session": {
-            "type": "realtime",
-            "model": REALTIME_MODEL,
-            "instructions": LAYAN_INSTRUCTIONS,
-            "audio": {
-                "input": {
-                    "turn_detection": {
-                        "type": "semantic_vad",
-                        "create_response": True,
-                        "interrupt_response": True,
-                    },
-                    "transcription": {
-                        "model": "gpt-4o-transcribe",
-                    },
-                },
-                "output": {
-                    "voice": "marin",
-                },
-            },
-            "output_modalities": ["audio"],
-        },
+        "session": _realtime_session(),
     }
-
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
 
     try:
         async with httpx.AsyncClient(timeout=20.0) as client:
-            response = await client.post(
-                "https://api.openai.com/v1/realtime/client_secrets",
-                headers=headers,
-                json=payload,
-            )
+            response = await client.post("https://api.openai.com/v1/realtime/client_secrets", headers=headers, json=payload)
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=502, detail=f"Voice provider connection failed: {exc.__class__.__name__}") from exc
 
@@ -70,12 +110,7 @@ async def create_layan_realtime_session():
     if not isinstance(value, str) or not value.startswith("ek_"):
         raise HTTPException(status_code=502, detail="Voice provider returned an invalid ephemeral client secret.")
 
-    return {
-        "value": value,
-        "expires_at": data.get("expires_at"),
-        "session": data.get("session", {}),
-        "model": REALTIME_MODEL,
-    }
+    return {"value": value, "expires_at": data.get("expires_at"), "session": data.get("session", {}), "model": REALTIME_MODEL}
 
 
 # main.py imports this router before creating its FastAPI app, but the historical
