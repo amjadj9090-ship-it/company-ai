@@ -88,3 +88,5 @@ jobs:
             git commit -m "Fix Company AI runtime initialization"
             git push
           fi
+
+      # Triggered validation refresh: keep promotion path active after runtime repair.
