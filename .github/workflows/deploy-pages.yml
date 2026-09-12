@@ -61,22 +61,22 @@ jobs:
           s=s.replace("function escapeHtml(s){return s.replace(", "function escapeHtml(s){return String(s??'').replace(")
           s=s.replace("u.rate=.94;u.pitch=1.02;", "u.rate=.90;u.pitch=1.00;")
           s=s.replace('<footer class="footer"><div class="wrap"><a href="admin.html" style="color:inherit">دخول إدارة Company AI</a> · <div class="wrap">© 2026 COMPANY AI — Digital • AI • Global Business</div></footer>', '<footer class="footer"><div class="wrap"><a href="admin.html" style="color:inherit">دخول إدارة Company AI</a> · © 2026 COMPANY AI — Digital • AI • Global Business</div></footer>')
-          s,n=re.subn(r'(<img\s+class="layanVoicePortrait"\s+src=")[^"]+("[^>]*>)', r'\1assets/layan-office.webp\2', s, count=1)
-          if n!=1: raise SystemExit(f'Expected one Layan voice portrait image, replaced {n}')
-          css='''
-          <style id="company-ai-layan-live-fix">
-          .layanVoicePortraitWrap{animation-play-state:running!important;will-change:transform}
-          .layanVoiceStage.speaking .layanVoicePortraitWrap{animation:layanHeadTalk .58s ease-in-out infinite alternate!important}
-          .layanVoiceStage.listening .layanVoicePortraitWrap{animation:layanHeadListen .95s ease-in-out infinite alternate!important}
-          .layanVoiceStage.speaking .layanEye{animation:layanEyeLook 1.5s ease-in-out infinite alternate!important}
-          .layanVoiceStage.speaking .layanBlink,.layanVoiceStage.listening .layanBlink{animation:layanBlink 3.4s ease-in-out infinite!important}
-          .layanVoiceStage.speaking .layanMouthRig{opacity:.72!important;animation:layanMouthLive .13s steps(2,end) infinite!important}
-          .layanVoiceStage.speaking .layanHeadHint{animation:layanShoulder .8s ease-in-out infinite alternate!important;opacity:.16!important}
-          .layanLanguagePill{display:inline-flex;align-items:center;gap:7px;margin:10px auto 0;padding:7px 11px;border-radius:999px;background:#eaf3ff;color:#2252a3;font-size:12px;font-weight:800}
-          .layanChoice,.layanQuickText,.layanQuickVoice{pointer-events:auto!important;touch-action:manipulation!important}
+          office_css='''
+          <style id="company-ai-layan-two-image-fix">
+          .layanOfficePortrait{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;pointer-events:none;transition:opacity .28s ease,transform .28s ease;transform:scale(.995);filter:drop-shadow(0 30px 60px rgba(0,0,0,.5));z-index:2}
+          .layanVoiceStage.speaking .layanOfficePortrait{opacity:1;transform:scale(1)}
+          .layanVoiceStage.speaking .layanVoicePortrait{opacity:0}
+          .layanVoicePortrait{transition:opacity .28s ease,transform .25s}
           </style>
           '''
-          s=s.replace('</head>', css+'\n</head>', 1)
+          s=s.replace('</head>', office_css+'\n</head>', 1)
+          needle='class="layanVoicePortrait"'
+          m=re.search(r'<img\s+class="layanVoicePortrait"[^>]*>',s)
+          if not m: raise SystemExit('Main Layan voice portrait image not found')
+          main_img=m.group(0)
+          if 'assets/layan-office.webp' in main_img: raise SystemExit('Main portrait was already replaced; refusing unsafe swap')
+          office_img='<img class="layanOfficePortrait" src="assets/layan-office.webp" alt="Layan in the Company AI office" aria-hidden="true">'
+          s=s[:m.end()]+office_img+s[m.end():]
           runtime='''
           /* Company AI Layan live-runtime repair */
           (function(){
@@ -98,7 +98,7 @@ jobs:
           marker='/* Company AI Layan live-runtime repair */'
           if marker not in s:s=s.replace('</script>', runtime+'</script>', 1)
           s=s.replace('@media (prefers-reduced-motion:reduce){.layanVoicePortraitWrap,.layanEye,.layanBlink,.layanMouthRig,.layanHeadHint{animation:none!important}}','')
-          s += '\n<!-- company-ai-build: layan-office-image-2026-09-12 -->\n'
+          s += '\n<!-- company-ai-build: layan-two-images-speaking-swap-2026-09-12 -->\n'
           p.write_text(s,encoding='utf-8')
           scripts=re.findall(r'<script[^>]*>(.*?)</script>',s,re.S|re.I)
           if len(scripts)!=2: raise SystemExit(f'Expected two script blocks, got {len(scripts)}')
@@ -108,11 +108,13 @@ jobs:
           node --check /tmp/company_ai_1.js
           node --check /tmp/company_ai_2.js
           grep -q 'layanVoiceStage' frontend/index.html
+          grep -q 'class="layanVoicePortrait"' frontend/index.html
+          grep -q 'class="layanOfficePortrait"' frontend/index.html
           grep -q 'assets/layan-office.webp' frontend/index.html
           grep -q 'startLayanVoice' frontend/index.html
           grep -q 'owner-dashboard' frontend/index.html
           grep -q 'company_ai_crm_v1' frontend/index.html
-          grep -q 'company-ai-build: layan-office-image-2026-09-12' frontend/index.html
+          grep -q 'company-ai-build: layan-two-images-speaking-swap-2026-09-12' frontend/index.html
 
       - name: Upload frontend
         uses: actions/upload-pages-artifact@v4
