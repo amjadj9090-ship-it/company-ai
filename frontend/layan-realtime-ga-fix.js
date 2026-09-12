@@ -4,7 +4,7 @@
   var state = { pc: null, mic: null, audio: null, dc: null, overlay: null, running: false };
 
   function apiBase() {
-    return (window.COMPANY_AI_API_BASE || (location.hostname.endsWith('github.io') ? 'https://company-ai-free-beta.onrender.com' : '')).replace(/\/$/, '');
+    return (window.COMPANY_AI_API_BASE || (location.hostname.endsWith('github.io') ? 'https://company-ai-0mya.onrender.com' : '')).replace(/\/$/, '');
   }
 
   function ensureOverlay() {
@@ -54,14 +54,10 @@
     if (transcript !== undefined) root.querySelector('#layanRealtimeTranscript').textContent = transcript || '…';
   }
 
-  function setActive(on) {
-    ensureOverlay().classList.toggle('active', !!on);
-  }
+  function setActive(on) { ensureOverlay().classList.toggle('active', !!on); }
 
   async function getEphemeralKey() {
-    var response = await fetch(apiBase() + '/api/voice-avatar/public-session', {
-      method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'
-    });
+    var response = await fetch(apiBase() + '/api/voice-avatar/public-session', {method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
     var data = await response.json().catch(function(){ return {}; });
     if (!response.ok) throw new Error(data.detail || ('Voice backend returned HTTP ' + response.status));
     if (!data.value || !String(data.value).startsWith('ek_')) throw new Error('Voice backend returned no valid ephemeral key');
@@ -73,59 +69,44 @@
     state.running = true;
     var root = ensureOverlay();
     root.classList.add('open');
-    ui('جاري الاتصال…', 'عم نجهّز جلسة الصوت المباشرة.', 'جاري إنشاء جلسة آمنة…');
+    ui('جاري الاتصال…','عم نجهّز جلسة الصوت المباشرة.','جاري إنشاء جلسة آمنة…');
     try {
       var key = await getEphemeralKey();
       state.mic = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1}});
       state.pc = new RTCPeerConnection();
       state.audio = document.createElement('audio'); state.audio.autoplay = true; state.audio.playsInline = true; state.audio.style.display='none'; document.body.appendChild(state.audio);
-      state.pc.ontrack = function(e){ state.audio.srcObject = e.streams[0]; state.audio.play().catch(function(){}); };
-      state.mic.getTracks().forEach(function(t){ state.pc.addTrack(t, state.mic); });
+      state.pc.ontrack = function(e){ state.audio.srcObject=e.streams[0]; state.audio.play().catch(function(){}); };
+      state.mic.getTracks().forEach(function(t){ state.pc.addTrack(t,state.mic); });
       state.dc = state.pc.createDataChannel('oai-events');
       state.dc.onopen = function(){
-        state.dc.send(JSON.stringify({type:'session.update',session:{type:'realtime',instructions:'You are Layan, the live voice assistant for Company AI. Detect the visitor language automatically. For Arabic, use clear Syrian/Levantine Arabic and never Egyptian phrasing. Speak naturally, concisely and professionally. Do not claim protected financial, legal or contract actions were completed without owner approval.',audio:{input:{noise_reduction:{type:'near_field'},transcription:{model:'gpt-4o-transcribe'},turn_detection:{type:'semantic_vad',eagerness:'auto',create_response:true,interrupt_response:true}},output:{voice:'marin'},},output_modalities:['audio']}}));
-        ui('متصل — احكي مع ليان', 'الميكروفون شغّال بشكل مستمر. احكي بشكل طبيعي وقاطع ليان بأي لحظة.', 'بانتظار كلامك…'); setActive(true);
+        state.dc.send(JSON.stringify({type:'session.update',session:{type:'realtime',instructions:'You are Layan, the live voice assistant for Company AI. Detect the visitor language automatically. For Arabic, use clear Syrian/Levantine Arabic and never Egyptian phrasing. Speak naturally, concisely and professionally. Do not claim protected financial, legal or contract actions were completed without owner approval.',audio:{input:{noise_reduction:{type:'near_field'},transcription:{model:'gpt-4o-transcribe'},turn_detection:{type:'semantic_vad',eagerness:'auto',create_response:true,interrupt_response:true}},output:{voice:'marin'}},output_modalities:['audio']}}));
+        ui('متصل — احكي مع ليان','الميكروفون شغّال بشكل مستمر. احكي بشكل طبيعي وقاطع ليان بأي لحظة.','بانتظار كلامك…'); setActive(true);
       };
       state.dc.onmessage = function(event){
         var data; try{data=JSON.parse(event.data);}catch(_){return;}
-        if(data.type==='input_audio_buffer.speech_started'){ui('عم اسمعك…','كمل كلامك بشكل طبيعي.','ليان عم تسمعك…');}
-        else if(data.type==='response.created'){ui('ليان عم ترد…','إذا بدك تقاطعها، احكي مباشرة.','');}
+        if(data.type==='input_audio_buffer.speech_started') ui('عم اسمعك…','كمل كلامك بشكل طبيعي.','ليان عم تسمعك…');
+        else if(data.type==='response.created') ui('ليان عم ترد…','إذا بدك تقاطعها، احكي مباشرة.','');
         else if(data.type==='response.audio_transcript.delta'){var el=root.querySelector('#layanRealtimeTranscript');el.textContent+=(data.delta||'');}
-        else if(data.type==='response.audio_transcript.done'){ui('ليان عم تحكي…','فيك تقاطعها بأي لحظة.',data.transcript||'');}
-        else if(data.type==='response.done'){ui('متصل — احكي مع ليان','الميكروفون شغّال بشكل مستمر.','بانتظار كلامك…');}
-        else if(data.type==='error'){ui('صار خطأ بالصوت',data.error&&data.error.message||'تعذر إكمال جلسة الصوت.', 'رح نوقف الجلسة بأمان.'); console.error('Layan Realtime error',data);}
+        else if(data.type==='response.audio_transcript.done') ui('ليان عم تحكي…','فيك تقاطعها بأي لحظة.',data.transcript||'');
+        else if(data.type==='response.done') ui('متصل — احكي مع ليان','الميكروفون شغّال بشكل مستمر.','بانتظار كلامك…');
+        else if(data.type==='error'){ui('صار خطأ بالصوت',data.error&&data.error.message||'تعذر إكمال جلسة الصوت.','رح نوقف الجلسة بأمان.'); console.error('Layan Realtime error',data);}
       };
-      state.pc.onconnectionstatechange = function(){
-        if(!state.pc)return;
-        if(state.pc.connectionState==='connected'){ui('متصل — احكي مع ليان','الجلسة لايف ومستمرة حتى تضغط إنهاء.','بانتظار كلامك…');}
-        if(['failed','disconnected','closed'].includes(state.pc.connectionState) && state.running){ui('انقطع الاتصال', 'رح نغلق الجلسة الحالية بأمان.', 'الاتصال انقطع.');}
-      };
-      var offer = await state.pc.createOffer(); await state.pc.setLocalDescription(offer);
-      var answerResponse = await fetch('https://api.openai.com/v1/realtime/calls', {method:'POST',headers:{'Authorization':'Bearer '+key,'Content-Type':'application/sdp'},body:offer.sdp});
-      var answer = await answerResponse.text();
-      if(!answerResponse.ok) throw new Error(answer || ('Realtime call failed with HTTP '+answerResponse.status));
+      state.pc.onconnectionstatechange = function(){ if(!state.pc)return; if(state.pc.connectionState==='connected') ui('متصل — احكي مع ليان','الجلسة لايف ومستمرة حتى تضغط إنهاء.','بانتظار كلامك…'); };
+      var offer=await state.pc.createOffer(); await state.pc.setLocalDescription(offer);
+      var answerResponse=await fetch('https://api.openai.com/v1/realtime/calls',{method:'POST',headers:{'Authorization':'Bearer '+key,'Content-Type':'application/sdp'},body:offer.sdp});
+      var answer=await answerResponse.text();
+      if(!answerResponse.ok) throw new Error(answer||('Realtime call failed with HTTP '+answerResponse.status));
       await state.pc.setRemoteDescription({type:'answer',sdp:answer});
-    } catch (err) {
+    } catch(err) {
       console.error('Layan live voice failed',err);
-      ui('تعذر تشغيل الصوت', 'في مشكلة بالاتصال بالخدمة الصوتية.', err && err.message ? err.message : 'Unknown voice error');
+      ui('تعذر تشغيل الصوت','في مشكلة بالاتصال بالخدمة الصوتية.',err&&err.message?err.message:'Unknown voice error');
       stopLayanVoice();
     }
   }
 
-  function stopLayanVoice() {
-    state.running=false;
-    if(state.dc){try{state.dc.close();}catch(_){ } state.dc=null;}
-    if(state.pc){try{state.pc.close();}catch(_){ } state.pc=null;}
-    if(state.mic){state.mic.getTracks().forEach(function(t){try{t.stop();}catch(_){ }});state.mic=null;}
-    if(state.audio){try{state.audio.pause();state.audio.srcObject=null;state.audio.remove();}catch(_){ }state.audio=null;}
-    if(state.overlay){state.overlay.classList.remove('open','active');}
-  }
-
-  function toggleLayanVoice(){ if(state.running) stopLayanVoice(); else startLayanVoice(); }
-  window.startLayanVoice=startLayanVoice; window.stopLayanVoice=stopLayanVoice; window.toggleLayanVoice=toggleLayanVoice; window.openLayanVoice=startLayanVoice; window.closeLayanVoice=stopLayanVoice;
-
-  function bind(){
-    document.querySelectorAll('.voiceChoice').forEach(function(btn){btn.addEventListener('click',function(e){e.preventDefault();startLayanVoice();});});
-  }
+  function stopLayanVoice(){state.running=false;if(state.dc){try{state.dc.close();}catch(_){ }state.dc=null;}if(state.pc){try{state.pc.close();}catch(_){ }state.pc=null;}if(state.mic){state.mic.getTracks().forEach(function(t){try{t.stop();}catch(_){ }});state.mic=null;}if(state.audio){try{state.audio.pause();state.audio.srcObject=null;state.audio.remove();}catch(_){ }state.audio=null;}if(state.overlay)state.overlay.classList.remove('open','active');}
+  function toggleLayanVoice(){if(state.running)stopLayanVoice();else startLayanVoice();}
+  window.startLayanVoice=startLayanVoice;window.stopLayanVoice=stopLayanVoice;window.toggleLayanVoice=toggleLayanVoice;window.openLayanVoice=startLayanVoice;window.closeLayanVoice=stopLayanVoice;
+  function bind(){document.querySelectorAll('.voiceChoice').forEach(function(btn){btn.addEventListener('click',function(e){e.preventDefault();startLayanVoice();});});}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();
 })();
