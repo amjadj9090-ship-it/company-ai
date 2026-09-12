@@ -62,7 +62,42 @@ jobs:
           '''
           s=s.replace('</head>', css+'\n</head>', 1)
 
-          runtime=r'''\n/* Company AI Layan live-runtime repair */\n(function(){\n  function ready(){\n    try{\n      document.querySelectorAll('.layanChoice.textChoice,.layanQuickText').forEach(function(b){b.addEventListener('click',function(e){e.preventDefault();if(typeof window.openAI==='function')window.openAI();},{passive:false});});\n      document.querySelectorAll('.layanChoice.voiceChoice,.layanQuickVoice').forEach(function(b){b.addEventListener('click',function(e){e.preventDefault();if(typeof window.openLayanVoice==='function')window.openLayanVoice();},{passive:false});});\n      var hero=document.querySelector('.layanWelcome');\n      if(hero&&!hero.querySelector('.layanLanguagePill')){var p=document.createElement('div');p.className='layanLanguagePill';p.id='layanLanguagePill';hero.appendChild(p);}\n      var names={ar:'العربية',en:'English',fr:'Français',de:'Deutsch',es:'Español',it:'Italiano',pt:'Português',tr:'Türkçe',nl:'Nederlands',zh:'中文',ru:'Русский',ja:'日本語',ko:'한국어'};\n      var p=document.getElementById('layanLanguagePill');if(p){var code=(document.documentElement.lang||'en').split('-')[0];p.textContent='🌐 '+(names[code]||code);}\n      if(typeof window.applyLang==='function')window.applyLang();\n      var stage=document.getElementById('layanVoiceStage');if(stage){stage.classList.remove('reduced-motion');}\n    }catch(e){console.warn('Company AI Layan live fix',e);}\n  }\n  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',ready);else ready();\n})();\n'''
+          runtime='''
+          /* Company AI Layan live-runtime repair */
+          (function(){
+            function ready(){
+              try{
+                document.querySelectorAll('.layanChoice.textChoice,.layanQuickText').forEach(function(b){
+                  b.addEventListener('click',function(e){
+                    e.preventDefault();
+                    if(typeof window.openAI==='function')window.openAI();
+                  },{passive:false});
+                });
+                document.querySelectorAll('.layanChoice.voiceChoice,.layanQuickVoice').forEach(function(b){
+                  b.addEventListener('click',function(e){
+                    e.preventDefault();
+                    if(typeof window.openLayanVoice==='function')window.openLayanVoice();
+                  },{passive:false});
+                });
+                var hero=document.querySelector('.layanWelcome');
+                if(hero&&!hero.querySelector('.layanLanguagePill')){
+                  var p=document.createElement('div');
+                  p.className='layanLanguagePill';
+                  p.id='layanLanguagePill';
+                  hero.appendChild(p);
+                }
+                var names={ar:'العربية',en:'English',fr:'Français',de:'Deutsch',es:'Español',it:'Italiano',pt:'Português',tr:'Türkçe',nl:'Nederlands',zh:'中文',ru:'Русский',ja:'日本語',ko:'한국어'};
+                var p=document.getElementById('layanLanguagePill');
+                if(p){
+                  var code=(document.documentElement.lang||'en').split('-')[0];
+                  p.textContent='🌐 '+(names[code]||code);
+                }
+                if(typeof window.applyLang==='function')window.applyLang();
+              }catch(e){console.warn('Company AI Layan live fix',e);}
+            }
+            if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',ready);else ready();
+          })();
+          '''
           marker='/* Company AI Layan live-runtime repair */'
           if marker not in s:
               s=s.replace('</script>', runtime+'</script>', 1)
