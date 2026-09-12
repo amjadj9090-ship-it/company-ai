@@ -42,13 +42,80 @@ jobs:
           from pathlib import Path
           p=Path('frontend/index.html')
           s=p.read_text(encoding='utf-8')
-          # Do not auto-open the modal on every visit; Layan's two entry choices must be the first interaction.
+          # Layan's two entry choices must be the first interaction; never auto-open the old AI modal.
           s=s.replace("applyLang();setTimeout(()=>{if(!sessionStorage.getItem('company_ai_intro_seen')){openAI();sessionStorage.setItem('company_ai_intro_seen','1')}},900);", "applyLang();")
-          # Make HTML escaping safe for null/number values.
+          # Safe HTML escaping for null/number values.
           s=s.replace("function escapeHtml(s){return s.replace(", "function escapeHtml(s){return String(s??'').replace(")
-          # Repair the footer shell so the document has a valid closing structure.
+          # Repair the footer shell.
           s=s.replace('<footer class="footer"><div class="wrap"><a href="admin.html" style="color:inherit">دخول إدارة Company AI</a> · <div class="wrap">© 2026 COMPANY AI — Digital • AI • Global Business</div></footer>', '<footer class="footer"><div class="wrap"><a href="admin.html" style="color:inherit">دخول إدارة Company AI</a> · © 2026 COMPANY AI — Digital • AI • Global Business</div></footer>')
-          # Stamp every build so stale GitHub Pages/CDN content cannot be mistaken for the current artifact.
+
+          # Force Layan motion even when the device/browser advertises reduced motion.
+          s=s.replace('@media (prefers-reduced-motion:reduce){.layanVoicePortraitWrap,.layanEye,.layanBlink,.layanMouthRig,.layanHeadHint{animation:none!important}}', '')
+          s += '''
+<style id="company-ai-layan-runtime-fix">
+/* Layan must visibly live while listening/speaking. */
+.layanVoicePortraitWrap{animation-play-state:running!important;will-change:transform}
+.layanVoiceStage.speaking .layanVoicePortraitWrap{animation:layanHeadTalk .58s ease-in-out infinite alternate!important}
+.layanVoiceStage.listening .layanVoicePortraitWrap{animation:layanHeadListen .95s ease-in-out infinite alternate!important}
+.layanVoiceStage.speaking .layanEye{animation:layanEyeLook 1.5s ease-in-out infinite alternate!important}
+.layanVoiceStage.speaking .layanBlink,.layanVoiceStage.listening .layanBlink{animation:layanBlink 3.4s ease-in-out infinite!important}
+.layanVoiceStage.speaking .layanMouthRig{opacity:.72!important;animation:layanMouthLive .13s steps(2,end) infinite!important}
+.layanVoiceStage.speaking .layanHeadHint{animation:layanShoulder .8s ease-in-out infinite alternate!important;opacity:.16!important}
+.layanLanguagePill{display:inline-flex;align-items:center;gap:7px;margin:10px auto 0;padding:7px 11px;border-radius:999px;background:#eaf3ff;color:#2252a3;font-size:12px;font-weight:800}
+.layanChoice,.layanQuickText,.layanQuickVoice{pointer-events:auto!important;touch-action:manipulation!important}
+</style>
+<script>
+(function(){
+  function ready(){
+    try{
+      /* Make the two Layan entry buttons reliable on touch devices even if an inline handler is interrupted. */
+      document.querySelectorAll('.layanChoice.textChoice,.layanQuickText').forEach(function(b){
+        b.addEventListener('click',function(e){
+          e.preventDefault();
+          if(typeof window.openAI==='function') window.openAI();
+        },{passive:false});
+      });
+      document.querySelectorAll('.layanChoice.voiceChoice,.layanQuickVoice').forEach(function(b){
+        b.addEventListener('click',function(e){
+          e.preventDefault();
+          if(typeof window.openLayanVoice==='function') window.openLayanVoice();
+        },{passive:false});
+      });
+      /* Ensure the language is visible, not only stored internally. */
+      var hero=document.querySelector('.layanWelcome');
+      if(hero && !hero.querySelector('.layanLanguagePill')){
+        var p=document.createElement('div'); p.className='layanLanguagePill'; p.id='layanLanguagePill';
+        hero.appendChild(p);
+      }
+      function refreshLanguagePill(){
+        var p=document.getElementById('layanLanguagePill');
+        if(!p) return;
+        var code=(window.lang||document.documentElement.lang||'en').split('-')[0];
+        var names={ar:'العربية',en:'English',fr:'Français',de:'Deutsch',es:'Español',it:'Italiano',pt:'Português',tr:'Türkçe',nl:'Nederlands',zh:'中文',ru:'Русский',ja:'日本語',ko:'한국어'};
+        p.textContent='🌐 '+(names[code]||code);
+      }
+      refreshLanguagePill();
+      if(typeof window.applyLang==='function') window.applyLang();
+      refreshLanguagePill();
+      /* Smoother browser TTS defaults; actual voice quality remains dependent on the device voice engine. */
+      if(typeof window.speakLayan==='function' && !window.__layanVoiceSmoothPatched){
+        var original=window.speakLayan;
+        window.speakLayan=function(text){
+          try{
+            text=String(text||'').replace(/\s+/g,' ').replace(/\.{2,}/g,'.').trim();
+            return original(text);
+          }catch(e){ return original(text); }
+        };
+        window.__layanVoiceSmoothPatched=true;
+      }
+    }catch(e){ console.warn('Company AI Layan runtime fix',e); }
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',ready); else ready();
+})();
+</script>
+<!-- company-ai-build: layan-live-2026-09-12 -->
+'''
+          # Stamp the artifact to defeat stale cache confusion.
           s += "\n<!-- company-ai-build: hardened-2026-09-12 -->\n"
           p.write_text(s,encoding='utf-8')
           PY
@@ -56,20 +123,21 @@ jobs:
           grep -q 'startLayanVoice' frontend/index.html
           grep -q 'owner-dashboard' frontend/index.html
           grep -q 'company_ai_crm_v1' frontend/index.html
-          grep -q 'hardened-2026-09-12' frontend/index.html
+          grep -q 'company-ai-build: layan-live-2026-09-12' frontend/index.html
           python3 - <<'PY'
           import re
           from pathlib import Path
           s=Path('frontend/index.html').read_text(encoding='utf-8')
           scripts=re.findall(r'<script[^>]*>(.*?)</script>',s,re.S|re.I)
-          if len(scripts)!=2: raise SystemExit(f'Expected two script blocks, got {len(scripts)}')
-          Path('/tmp/company_ai_head.js').write_text(scripts[0],encoding='utf-8')
-          Path('/tmp/company_ai.js').write_text(scripts[1],encoding='utf-8')
+          # The build now contains the original two scripts plus one small runtime repair script.
+          if len(scripts)!=3: raise SystemExit(f'Expected three script blocks, got {len(scripts)}')
+          for i,body in enumerate(scripts,1): Path(f'/tmp/company_ai_{i}.js').write_text(body,encoding='utf-8')
           if s.lower().count('<html')!=1 or s.lower().count('</html>')!=1 or s.lower().count('<body')!=1 or s.lower().count('</body>')!=1:
               raise SystemExit('Malformed HTML shell')
           PY
-          node --check /tmp/company_ai_head.js
-          node --check /tmp/company_ai.js
+          node --check /tmp/company_ai_1.js
+          node --check /tmp/company_ai_2.js
+          node --check /tmp/company_ai_3.js
 
       - name: Upload frontend
         uses: actions/upload-pages-artifact@v4
