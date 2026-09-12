@@ -1,10 +1,11 @@
-name: Deploy Company AI Pages v10
+name: Deploy Company AI Pages v11
 
 on:
   push:
     branches: [main]
     paths:
       - 'frontend/layan-realtime-hotfix.js'
+      - 'frontend/layan-realtime-lock-v11.js'
       - '.github/workflows/deploy-pages-hotfix-v9b.yml'
   workflow_dispatch:
 
@@ -33,6 +34,7 @@ jobs:
           set -e
           test -s frontend/index.html
           test -s frontend/layan-realtime-hotfix.js
+          test -s frontend/layan-realtime-lock-v11.js
           mkdir -p frontend/assets
           python3 - <<'PY'
           import base64,re
@@ -50,11 +52,14 @@ jobs:
           p=Path('frontend/index.html')
           s=p.read_text(encoding='utf-8')
           s=re.sub(r'<script[^>]+layan-realtime-hotfix\.js\?v=[^"\']+["\'][^>]*></script>\s*','',s,flags=re.I)
-          s=s.replace('</body>','<script src="layan-realtime-hotfix.js?v=20260912-v10"></script>\n</body>',1)
+          s=re.sub(r'<script[^>]+layan-realtime-lock-v11\.js[^"\']*["\'][^>]*></script>\s*','',s,flags=re.I)
+          s=s.replace('</body>','<script src="layan-realtime-hotfix.js?v=20260912-v11"></script>\n<script src="layan-realtime-lock-v11.js?v=20260912-v11"></script>\n</body>',1)
           p.write_text(s,encoding='utf-8')
           PY
-          grep -q 'layan-realtime-hotfix.js?v=20260912-v10' frontend/index.html
+          grep -q 'layan-realtime-hotfix.js?v=20260912-v11' frontend/index.html
+          grep -q 'layan-realtime-lock-v11.js?v=20260912-v11' frontend/index.html
           node --check frontend/layan-realtime-hotfix.js
+          node --check frontend/layan-realtime-lock-v11.js
           grep -q 'RTCPeerConnection' frontend/layan-realtime-hotfix.js
           grep -q 'getUserMedia' frontend/layan-realtime-hotfix.js
           grep -q '/v1/realtime/calls' frontend/layan-realtime-hotfix.js
