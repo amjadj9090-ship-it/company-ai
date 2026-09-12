@@ -15,9 +15,6 @@ LAYAN_INSTRUCTIONS = """You are Layan, the voice AI assistant for Company AI. Sp
 
 
 def _realtime_session() -> dict:
-    # Keep the initial WebRTC session configuration exactly aligned with the
-    # current OpenAI unified /v1/realtime/calls contract. Extra legacy fields
-    # here can cause the provider to reject the SDP handshake before audio starts.
     return {
         "type": "realtime",
         "model": REALTIME_MODEL,
@@ -43,8 +40,6 @@ async def create_layan_realtime_call(request: Request) -> Response:
     if not sdp:
         raise HTTPException(status_code=400, detail="Missing WebRTC SDP offer.")
 
-    # OpenAI's current unified WebRTC interface expects the SDP and session
-    # configuration as multipart/form-data and a standard server-side API key.
     files = {
         "sdp": ("offer.sdp", sdp, "application/sdp"),
         "session": (None, json.dumps(_realtime_session()), "application/json"),
@@ -62,15 +57,18 @@ async def create_layan_realtime_call(request: Request) -> Response:
                 files=files,
             )
     except httpx.HTTPError as exc:
+        print(f"[LAYAN_REALTIME] provider connection error: {exc.__class__.__name__}", flush=True)
         raise HTTPException(
             status_code=502,
             detail=f"Voice provider connection failed: {exc.__class__.__name__}",
         ) from exc
 
     if response.status_code >= 400:
-        # Keep the real provider status visible so future configuration/API
-        # errors are diagnosable instead of being hidden behind a generic 502.
-        detail = response.text[:1000]
+        detail = response.text[:4000]
+        print(
+            f"[LAYAN_REALTIME] OpenAI provider rejected call: status={response.status_code} body={detail}",
+            flush=True,
+        )
         raise HTTPException(
             status_code=response.status_code,
             detail=f"Realtime provider error: HTTP {response.status_code}: {detail}",
@@ -78,17 +76,18 @@ async def create_layan_realtime_call(request: Request) -> Response:
 
     answer_sdp = response.text.strip()
     if not answer_sdp:
+        print("[LAYAN_REALTIME] provider returned empty SDP answer", flush=True)
         raise HTTPException(
             status_code=502,
             detail="Realtime provider returned an empty SDP answer.",
         )
 
+    print("[LAYAN_REALTIME] WebRTC handshake succeeded", flush=True)
     return Response(content=answer_sdp, media_type="application/sdp")
 
 
 @router.post("/api/voice-avatar/public-session")
 async def create_layan_realtime_session():
-    # Kept for compatibility with older Company AI clients.
     api_key = os.getenv("OPENAI_API_KEY", "").strip()
     if not api_key:
         raise HTTPException(
@@ -145,8 +144,6 @@ async def create_layan_realtime_session():
     }
 
 
-# main.py imports this router before creating its FastAPI app. Attach it to the
-# Company AI app so the endpoint works regardless of the Render entrypoint.
 _original_fastapi_init = FastAPI.__init__
 
 
