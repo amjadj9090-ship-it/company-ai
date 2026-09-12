@@ -45,6 +45,7 @@ jobs:
           s=p.read_text(encoding='utf-8')
           s=s.replace("applyLang();setTimeout(()=>{if(!sessionStorage.getItem('company_ai_intro_seen')){openAI();sessionStorage.setItem('company_ai_intro_seen','1')}},900);", "applyLang();")
           s=s.replace("function escapeHtml(s){return s.replace(", "function escapeHtml(s){return String(s??'').replace(")
+          s=s.replace("u.rate=.94;u.pitch=1.02;", "u.rate=.90;u.pitch=1.00;")
           s=s.replace('<footer class="footer"><div class="wrap"><a href="admin.html" style="color:inherit">دخول إدارة Company AI</a> · <div class="wrap">© 2026 COMPANY AI — Digital • AI • Global Business</div></footer>', '<footer class="footer"><div class="wrap"><a href="admin.html" style="color:inherit">دخول إدارة Company AI</a> · © 2026 COMPANY AI — Digital • AI • Global Business</div></footer>')
 
           css='''
