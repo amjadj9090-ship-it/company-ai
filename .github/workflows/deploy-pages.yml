@@ -102,9 +102,8 @@ jobs:
           marker='/* Company AI Layan live-runtime repair */'
           if marker not in s:s=s.replace('</script>', runtime+'</script>', 1)
           s=s.replace('@media (prefers-reduced-motion:reduce){.layanVoicePortraitWrap,.layanEye,.layanBlink,.layanMouthRig,.layanHeadHint{animation:none!important}}','')
-          # One and only one realtime hotfix is injected by the single Pages deployment.
-          s=s.replace('</body>','<script src="layan-realtime-hotfix.js?v=20260912-v6"></script>\n</body>',1)
-          s += '\n<!-- company-ai-build: single-pages-deploy-layan-realtime-v6-2026-09-12 -->\n'
+          s=s.replace('</body>','<script src="layan-realtime-hotfix.js?v=20260912-v7"></script>\n</body>',1)
+          s += '\n<!-- company-ai-build: single-pages-deploy-layan-realtime-v7-2026-09-12 -->\n'
           p.write_text(s,encoding='utf-8')
           scripts=re.findall(r'<script[^>]*>(.*?)</script>',s,re.S|re.I)
           if len(scripts)!=3: raise SystemExit(f'Expected three script blocks, got {len(scripts)}')
@@ -116,11 +115,12 @@ jobs:
           node --check /tmp/company_ai_2.js
           node --check /tmp/company_ai_3.js
           grep -q 'layanRealtimeHotfix' frontend/layan-realtime-hotfix.js
-          grep -q 'v1/realtime/calls' frontend/layan-realtime-hotfix.js
-          grep -q 'new FormData' frontend/layan-realtime-hotfix.js
+          grep -q 'gpt-realtime-2.1' frontend/layan-realtime-hotfix.js
+          grep -q 'RealtimeSession' frontend/layan-realtime-hotfix.js
+          grep -q 'session.connect' frontend/layan-realtime-hotfix.js
+          grep -q 'session.close' frontend/layan-realtime-hotfix.js
           grep -q 'stopImmediatePropagation' frontend/layan-realtime-hotfix.js
-          grep -q 'interrupt_response' frontend/layan-realtime-hotfix.js
-          grep -q 'layan-realtime-hotfix.js?v=20260912-v6' frontend/index.html
+          grep -q 'layan-realtime-hotfix.js?v=20260912-v7' frontend/index.html
 
       - name: Upload frontend
         uses: actions/upload-pages-artifact@v4
