@@ -1,0 +1,74 @@
+name: Apply Layan Voice Model 2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'layan-model2.trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Patch Company AI
+        shell: python
+        run: |
+          from pathlib import Path
+          import subprocess
+          p=Path('companyai_v9_optimized.html')
+          s=p.read_text(encoding='utf-8')
+          marker='company-ai-build: layan-voice-model-2-live-session-2026-09-12'
+          if marker in s:
+              print('Model 2 already applied')
+              raise SystemExit(0)
+          css=r'''<style id="company-ai-layan-model2-css">
+          #companyAiLayanSession2{position:fixed;inset:0;z-index:100000;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(2,8,19,.92);overflow:auto}
+          #companyAiLayanSession2.open{display:flex}
+          #companyAiLayanSession2 .session2Frame{position:relative;width:min(1180px,96vw);height:min(92vh,860px);border-radius:28px;overflow:hidden;background:#071321 url('assets/layan-office.webp') center center/contain no-repeat;box-shadow:0 35px 120px rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.16)}
+          #companyAiLayanSession2 .session2Shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(4,12,22,.04) 55%,rgba(4,12,22,.48) 100%);pointer-events:none}
+          #companyAiLayanSession2 .session2Title{position:absolute;top:18px;right:18px;padding:10px 14px;border-radius:14px;background:rgba(7,19,33,.68);backdrop-filter:blur(12px);color:#fff;font-weight:800;border:1px solid rgba(255,255,255,.16);z-index:5}
+          #companyAiLayanSession2 .session2End{position:absolute;left:18px;bottom:18px;z-index:20;border:0;border-radius:14px;padding:12px 18px;background:rgba(160,35,55,.92);color:#fff;font-weight:900;cursor:pointer;box-shadow:0 10px 30px rgba(0,0,0,.3)}
+          #companyAiLayanSession2 .session2Status{position:absolute;left:18px;top:18px;z-index:5;padding:9px 12px;border-radius:12px;background:rgba(7,19,33,.68);backdrop-filter:blur(12px);color:#eaf4ff;font-size:12px;border:1px solid rgba(255,255,255,.14)}
+          #companyAiLayanSession2 .session2Host{position:absolute;inset:0;z-index:10;display:flex;align-items:flex-end;justify-content:center;padding:0 18px 18px;pointer-events:none}
+          #companyAiLayanSession2 .session2Host>*{pointer-events:auto}
+          #companyAiLayanSession2 .layanVoiceStage{width:min(720px,100%);background:transparent!important;border:0!important;box-shadow:none!important}
+          #companyAiLayanSession2 .layanVoicePortraitWrap{background:transparent!important;border:0!important;box-shadow:none!important}
+          #companyAiLayanSession2 .layanVoicePortrait,#companyAiLayanSession2 .layanOfficePortrait{visibility:hidden!important;opacity:0!important}
+          @media(max-width:700px){#companyAiLayanSession2{padding:0}#companyAiLayanSession2 .session2Frame{width:100vw;height:100vh;border-radius:0;background-size:contain}#companyAiLayanSession2 .session2Host{padding:0 10px 10px}#companyAiLayanSession2 .session2Title{top:10px;right:10px}#companyAiLayanSession2 .session2Status{top:10px;left:10px}#companyAiLayanSession2 .session2End{left:10px;bottom:10px}}
+          </style>'''
+          js=r'''<script id="company-ai-layan-model2-js">
+          (function(){
+            var originalOpen=null,originalClose=null,session=null,host=null,stage=null,oldParent=null,oldNext=null,watcher=null;
+            function makeSession(){
+              if(session)return session;
+              session=document.createElement('div');session.id='companyAiLayanSession2';session.setAttribute('role','dialog');session.setAttribute('aria-modal','true');session.setAttribute('aria-label','جلسة الدردشة الصوتية مع ليان');
+              session.innerHTML='<div class="session2Frame"><div class="session2Shade"></div><div class="session2Title">ليان — جلسة صوتية مباشرة</div><div class="session2Status" id="companyAiLayanSession2Status">الجلسة مفتوحة</div><div class="session2Host" id="companyAiLayanSession2Host"></div><button type="button" class="session2End" id="companyAiLayanSession2End">إنهاء المحادثة</button></div>';
+              document.body.appendChild(session);host=session.querySelector('#companyAiLayanSession2Host');session.querySelector('#companyAiLayanSession2End').addEventListener('click',function(){endSession(true)});return session;
+            }
+            function findStage(){return document.querySelector('.layanVoiceStage')}
+            function moveStageIntoSession(){stage=findStage();if(!stage||!host)return false;if(stage.parentElement!==host){oldParent=stage.parentElement;oldNext=stage.nextSibling;host.appendChild(stage)}return true}
+            function restoreStage(){if(stage&&oldParent){if(oldNext&&oldNext.parentNode===oldParent)oldParent.insertBefore(stage,oldNext);else oldParent.appendChild(stage)}stage=null;oldParent=null;oldNext=null}
+            function startSession(){makeSession();session.classList.add('open');document.documentElement.style.overflow='hidden';setTimeout(function(){moveStageIntoSession();if(typeof window.startLayanVoice==='function')window.startLayanVoice();var st=document.getElementById('companyAiLayanSession2Status');if(st)st.textContent='تحدث مع ليان — الجلسة مستمرة'},80);if(watcher)clearInterval(watcher);watcher=setInterval(function(){if(!session||!session.classList.contains('open'))return;if(stage&&stage.parentElement===host)return;moveStageIntoSession()},250)}
+            function endSession(callOriginal){if(watcher){clearInterval(watcher);watcher=null}if(callOriginal&&originalClose){try{originalClose()}catch(e){}}restoreStage();if(session)session.classList.remove('open');document.documentElement.style.overflow=''}
+            function install(){if(window.__companyAiLayanModel2Installed)return;window.__companyAiLayanModel2Installed=true;originalOpen=window.openLayanVoice;originalClose=window.closeLayanVoice;if(typeof originalOpen==='function')window.openLayanVoice=function(){startSession()};if(typeof originalClose==='function')window.closeLayanVoice=function(){endSession(false);try{originalClose()}catch(e){}};document.addEventListener('click',function(e){var b=e.target.closest('.layanChoice.voiceChoice,.layanQuickVoice');if(b){e.preventDefault();e.stopImmediatePropagation();startSession()}},true)}
+            if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
+          })();
+          </script>'''
+          s=s.replace('</head>',css+'</head>',1)
+          s=s.replace('</body>',js+'</body>',1)
+          s=s.replace('</html>','\n<!-- '+marker+' -->\n</html>',1)
+          p.write_text(s,encoding='utf-8')
+          subprocess.run(['git','config','user.name','company-ai-bot'],check=True)
+          subprocess.run(['git','config','user.email','41898282+github-actions[bot]@users.noreply.github.com'],check=True)
+          subprocess.run(['git','add','companyai_v9_optimized.html'],check=True)
+          subprocess.run(['git','commit','-m','Add Layan Voice Model 2 live office session'],check=True)
+          subprocess.run(['git','push'],check=True)
+      - name: Deploy updated site
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy-pages.yml --ref main
