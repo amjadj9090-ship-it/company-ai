@@ -1153,14 +1153,39 @@ def list_avatar_profiles(u=Depends(current_user),s:Session=Depends(db)):
     if not (u.role=='admin' or allowed(u,'avatar_profiles')): raise HTTPException(403,'Insufficient permission')
     return [dict(e.data,id=e.id) for e in s.scalars(select(Entity).where(Entity.kind=='avatar_profiles').order_by(Entity.id.desc())).all()]
 
+# COMPANY-AI-LIVE-REALTIME-ENDPOINT-V1
 @app.post('/api/voice-avatar/public-session')
-def create_public_voice_session(request:Request,s:Session=Depends(db)):
-    avatar=s.scalar(select(Entity).where(Entity.kind=='avatar_profiles',Entity.data['slug'].as_string()=='layan'))
-    if not avatar:
-        raise HTTPException(404,'Layan avatar not found')
-    data={'source':'layan','avatar_id':avatar.id,'language':'auto','channel':'website','mode':'duplex','status':'active','pipeline':['listen','speech_to_text','central_ai','response_text','text_to_speech','lip_sync','avatar_motion'],'engine':'company-ai-native','public':True}
-    e=add(s,'voice_sessions',data); audit(s,type('U',(),{'email':'public_layan'})(),'public_voice_session','voice_sessions',e.id,{'ip_hash':hashlib.sha256((request.client.host or '').encode()).hexdigest()[:16]}); s.commit()
-    return dict(data,id=e.id,session_id=e.id)
+async def create_public_voice_session(request:Request):
+    import httpx
+    api_key=os.getenv('OPENAI_API_KEY','').strip()
+    if not api_key:
+        raise HTTPException(503,'Voice service is not configured: OPENAI_API_KEY is missing on the server.')
+    model=os.getenv('REALTIME_MODEL','gpt-realtime-2.1')
+    payload={
+        'expires_after':{'anchor':'created_at','seconds':600},
+        'session':{
+            'type':'realtime','model':model,
+            'instructions':('You are Layan, the live voice AI assistant for Company AI. Detect the visitor language automatically. For Arabic, use clear Syrian/Levantine Arabic and never Egyptian phrasing. Speak naturally, warmly, concisely and professionally. Owner approval is required before sensitive commitments such as transfers, withdrawals, signing contracts, or non-standard binding commitments. You may discuss, qualify leads and prepare drafts, but never claim a sensitive commitment was finalized without owner approval.'),
+            'audio':{
+                'input':{'turn_detection':{'type':'semantic_vad','create_response':True,'interrupt_response':True},'transcription':{'model':'gpt-4o-transcribe'}},
+                'output':{'voice':'marin'}
+            },
+            'output_modalities':['audio']
+        }
+    }
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            r=await client.post('https://api.openai.com/v1/realtime/client_secrets',headers={'Authorization':f'Bearer {api_key}','Content-Type':'application/json'},json=payload)
+    except httpx.HTTPError as exc:
+        raise HTTPException(502,f'Voice provider connection failed: {exc.__class__.__name__}') from exc
+    if r.status_code>=400:
+        try: detail=r.json()
+        except Exception: detail=r.text[:500]
+        raise HTTPException(502,{'provider_status':r.status_code,'provider_error':detail})
+    data=r.json(); value=data.get('value')
+    if not isinstance(value,str) or not value.startswith('ek_'):
+        raise HTTPException(502,'Voice provider returned an invalid ephemeral client secret.')
+    return {'value':value,'expires_at':data.get('expires_at'),'session':data.get('session',{}),'model':model}
 
 @app.post('/api/voice-avatar/sessions')
 def create_voice_session(x:VoiceSessionIn,u=Depends(current_user),s:Session=Depends(db)):
