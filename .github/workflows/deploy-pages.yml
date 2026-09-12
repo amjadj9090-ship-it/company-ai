@@ -33,15 +33,43 @@ jobs:
         with:
           enablement: true
 
-      - name: Build Pages artifact from the latest Company AI frontend
+      - name: Build and harden latest Company AI frontend
         run: |
           set -e
           test -s companyai_v9_optimized.html
           cp companyai_v9_optimized.html frontend/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('frontend/index.html')
+          s=p.read_text(encoding='utf-8')
+          # Do not auto-open the modal on every visit; Layan's two entry choices must be the first interaction.
+          s=s.replace("applyLang();setTimeout(()=>{if(!sessionStorage.getItem('company_ai_intro_seen')){openAI();sessionStorage.setItem('company_ai_intro_seen','1')}},900);", "applyLang();")
+          # Make HTML escaping safe for null/number values.
+          s=s.replace("function escapeHtml(s){return s.replace(", "function escapeHtml(s){return String(s??'').replace(")
+          # Repair the footer shell so the document has a valid closing structure.
+          s=s.replace('<footer class="footer"><div class="wrap"><a href="admin.html" style="color:inherit">دخول إدارة Company AI</a> · <div class="wrap">© 2026 COMPANY AI — Digital • AI • Global Business</div></footer>', '<footer class="footer"><div class="wrap"><a href="admin.html" style="color:inherit">دخول إدارة Company AI</a> · © 2026 COMPANY AI — Digital • AI • Global Business</div></footer>')
+          # Stamp every build so stale GitHub Pages/CDN content cannot be mistaken for the current artifact.
+          s += "\n<!-- company-ai-build: hardened-2026-09-12 -->\n"
+          p.write_text(s,encoding='utf-8')
+          PY
           grep -q 'layanVoiceStage' frontend/index.html
           grep -q 'startLayanVoice' frontend/index.html
           grep -q 'owner-dashboard' frontend/index.html
           grep -q 'company_ai_crm_v1' frontend/index.html
+          grep -q 'hardened-2026-09-12' frontend/index.html
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          s=Path('frontend/index.html').read_text(encoding='utf-8')
+          scripts=re.findall(r'<script[^>]*>(.*?)</script>',s,re.S|re.I)
+          if len(scripts)!=2: raise SystemExit(f'Expected two script blocks, got {len(scripts)}')
+          Path('/tmp/company_ai_head.js').write_text(scripts[0],encoding='utf-8')
+          Path('/tmp/company_ai.js').write_text(scripts[1],encoding='utf-8')
+          if s.lower().count('<html')!=1 or s.lower().count('</html>')!=1 or s.lower().count('<body')!=1 or s.lower().count('</body>')!=1:
+              raise SystemExit('Malformed HTML shell')
+          PY
+          node --check /tmp/company_ai_head.js
+          node --check /tmp/company_ai.js
 
       - name: Upload frontend
         uses: actions/upload-pages-artifact@v4
