@@ -35,6 +35,7 @@ jobs:
         run: |
           set -e
           test -s companyai_v9_optimized.html
+          test -s frontend/layan-realtime-ga-fix.js
           mkdir -p frontend/assets
           python3 - <<'PY'
           import base64,re
@@ -51,7 +52,6 @@ jobs:
           s += '\n<!-- company-ai-build: layan-ga-realtime-verified-v2-2026-09-12 -->\n'
           p.write_text(s,encoding='utf-8')
           PY
-          cp frontend/layan-realtime-ga-fix.js frontend/layan-realtime-ga-fix.js
           node --check frontend/layan-realtime-ga-fix.js
           grep -q 'layan-ga-realtime-verified-v2-2026-09-12' frontend/index.html
           grep -q 'api/voice-avatar/public-session' frontend/layan-realtime-ga-fix.js
