@@ -38,6 +38,18 @@ jobs:
           p.write_text(s,encoding='utf-8')
           PY
 
+      - name: Restore early browser language bootstrap
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('companyai_v9_optimized.html')
+          s=p.read_text(encoding='utf-8')
+          boot="""<script>(function(){try{var n=(navigator.languages&&navigator.languages[0]||navigator.language||'en').toLowerCase().split('-')[0];var ok=['ar','en','zh','fr','de','es','it','pt','tr','nl','ru','ja','ko'];if(ok.indexOf(n)<0)n='en';document.documentElement.lang=n;document.documentElement.dir=n==='ar'?'rtl':'ltr';}catch(e){}})();</script>"""
+          if 'navigator.languages&&navigator.languages[0]' not in s:
+              s=s.replace('</head>',boot+'</head>',1)
+          p.write_text(s,encoding='utf-8')
+          PY
+
       - name: Patch frontend for reliable first-screen interaction
         run: |
           python3 - <<'PY'
@@ -66,19 +78,18 @@ jobs:
           import re
           s=Path('companyai_v9_optimized.html').read_text(encoding='utf-8')
           scripts=re.findall(r'<script[^>]*>(.*?)</script>',s,re.S|re.I)
-          if len(scripts)!=2: raise SystemExit(f'Expected two script blocks, got {len(scripts)}')
+          if len(scripts)<2: raise SystemExit(f'Expected bootstrap plus main script, got {len(scripts)}')
           if s.count('</script>') != s.count('<script'):
               raise SystemExit('Unbalanced script tags')
-          Path('/tmp/company_ai_head.js').write_text(scripts[0],encoding='utf-8')
-          Path('/tmp/company_ai.js').write_text(scripts[1],encoding='utf-8')
+          for i,x in enumerate(scripts): Path(f'/tmp/company_ai_{i}.js').write_text(x,encoding='utf-8')
           required=['openAI','openLayanVoice','startLayanVoice','toggleLayanVoice','answerLayan','speakLayan','askAI']
           missing=[x for x in required if x not in s]
           if missing: raise SystemExit('Missing functions: '+str(missing))
           if '<body' not in s or '</body>' not in s or '</html>' not in s: raise SystemExit('Malformed HTML shell')
           if s.find('const LAYAN_LANGS=') > s.find('let lang=browserBaseLanguage();'): raise SystemExit('LAYAN_LANGS still declared after language initialization')
           PY
-          node --check /tmp/company_ai_head.js
-          node --check /tmp/company_ai.js
+          node --check /tmp/company_ai_0.js
+          node --check /tmp/company_ai_1.js
 
       - name: Promote optimized frontend
         run: cp companyai_v9_optimized.html frontend/index.html
