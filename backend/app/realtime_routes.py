@@ -40,9 +40,12 @@ async def create_layan_realtime_call(request: Request) -> Response:
     if not sdp:
         raise HTTPException(status_code=400, detail="Missing WebRTC SDP offer.")
 
+    # OpenAI expects both SDP and session as ordinary multipart form fields.
+    # Supplying a filename makes `sdp` a file upload and the Realtime endpoint
+    # rejects it as a missing form field.
     files = {
-        "sdp": ("offer.sdp", sdp, "application/sdp"),
-        "session": (None, json.dumps(_realtime_session()), "application/json"),
+        "sdp": (None, sdp),
+        "session": (None, json.dumps(_realtime_session())),
     }
     headers = {
         "Authorization": f"Bearer {api_key}",
