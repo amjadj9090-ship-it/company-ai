@@ -1,9 +1,8 @@
-/* Company AI — Layan Realtime v13 — ephemeral client secret + native WebRTC */
+/* Company AI — Layan Realtime v14 — server-proxied native WebRTC */
 (function(){
 'use strict';
 var S={pc:null,stream:null,audio:null,dc:null,root:null,running:false,busy:false};
 var API='https://company-ai-0mya.onrender.com';
-var OPENAI='https://api.openai.com/v1/realtime/calls';
 function overlay(){
  if(S.root)return S.root;
  var r=document.createElement('div');r.id='layanRealtimeHotfix';
@@ -17,11 +16,9 @@ function set(status,msg){var r=overlay();r.classList.add('open');r.style.display
 function looksLikeVoice(el){if(!el)return false;var x=el.closest&&el.closest('button,[role="button"],a,[onclick],.voiceChoice,.layanChoice.voiceChoice,.layanQuickVoice');if(!x)return false;var t=((x.innerText||x.textContent||'')+' '+(x.getAttribute('aria-label')||'')+' '+(x.getAttribute('title')||'')+' '+(x.className||'')).toLowerCase();return /voice|audio|speak|talk|live|صوت|صوتي|صوتية|محادثة صوت|دردشة صوت|تكلم|تحدث/.test(t)}
 function interceptVoiceClicks(){['pointerdown','mousedown','touchstart'].forEach(function(type){window.addEventListener(type,function(e){if(S.root&&S.root.contains(e.target))return;if(looksLikeVoice(e.target)){e.preventDefault();e.stopPropagation();if(e.stopImmediatePropagation)e.stopImmediatePropagation();start()}},true)})}
 function onEvent(ev){try{var x=typeof ev==='string'?JSON.parse(ev):ev;if(!x||!x.type)return;console.log('Layan Realtime event',x.type);if(x.type==='session.created')set('تم الاتصال بليان','احكي بشكل طبيعي… الميكروفون شغّال.');else if(x.type==='input_audio_buffer.speech_started')set('ليان عم تسمعك','كمل كلامك…');else if(x.type==='response.created')set('ليان عم ترد','فيك تقاطعها بأي لحظة.');else if(x.type==='response.done')set('لايف — احكي مع ليان','المحادثة مستمرة والميكروفون شغّال.');else if(x.type==='error'){console.error('Layan realtime server error',x);set('مشكلة بالاتصال الصوتي',x.error&&x.error.message?x.error.message:'تعذر إكمال الاتصال.')}}catch(e){console.warn('Realtime event parse error',e)}}
-async function getClientSecret(){var r=await fetch(API+'/api/voice-avatar/public-session',{method:'POST',headers:{'Accept':'application/json'}});var text=await r.text();if(!r.ok)throw Error('خادم جلسة الصوت أعاد HTTP '+r.status+': '+text.slice(0,300));var d;try{d=JSON.parse(text)}catch(e){throw Error('خادم جلسة الصوت أعاد استجابة غير صالحة')}if(!d.value||!/^ek_/.test(d.value))throw Error('لم يتم الحصول على مفتاح جلسة صوت صالح');return d.value}
-async function start(){if(S.running||S.busy)return;S.busy=true;S.running=true;set('جاري الاتصال…','عم نجهّز اتصال WebRTC آمن…');try{
+async function start(){if(S.running||S.busy)return;S.busy=true;S.running=true;set('جاري الاتصال…','عم نجهّز اتصال WebRTC آمن عبر خادم Company AI…');try{
  if(!window.RTCPeerConnection)throw Error('المتصفح لا يدعم WebRTC');
  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw Error('المتصفح لا يسمح بالوصول إلى الميكروفون');
- var key=await getClientSecret();
  var stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});S.stream=stream;
  var pc=new RTCPeerConnection();S.pc=pc;
  stream.getTracks().forEach(function(track){pc.addTrack(track,stream)});
@@ -31,12 +28,12 @@ async function start(){if(S.running||S.busy)return;S.busy=true;S.running=true;se
  pc.onconnectionstatechange=function(){console.log('Layan WebRTC state',pc.connectionState);if(pc.connectionState==='connected')set('لايف — احكي مع ليان','المحادثة الصوتية مفتوحة. احكي بشكل طبيعي.');if(pc.connectionState==='failed'||pc.connectionState==='disconnected')set('انقطع الاتصال الصوتي','الاتصال انقطع. احكي من جديد لإعادة المحاولة.')};
  var offer=await pc.createOffer();await pc.setLocalDescription(offer);await new Promise(function(resolve){if(pc.iceGatheringState==='complete')return resolve();function done(){if(pc.iceGatheringState==='complete'){pc.removeEventListener('icegatheringstatechange',done);resolve()}}pc.addEventListener('icegatheringstatechange',done);setTimeout(resolve,7000)});
  var local=pc.localDescription;if(!local||!local.sdp)throw Error('تعذر إنشاء SDP للاتصال الصوتي');
- var answerRes=await fetch(OPENAI,{method:'POST',headers:{'Authorization':'Bearer '+key,'Content-Type':'application/sdp','Accept':'application/sdp'},body:local.sdp});
- var answer=await answerRes.text();if(!answerRes.ok)throw Error('خدمة الصوت أعادت HTTP '+answerRes.status+': '+answer.slice(0,300));
- if(!answer.trim().startsWith('v='))throw Error('خدمة الصوت لم ترجع SDP صالحاً');
+ var answerRes=await fetch(API+'/api/voice-avatar/realtime-call',{method:'POST',headers:{'Content-Type':'application/sdp','Accept':'application/sdp'},body:local.sdp});
+ var answer=await answerRes.text();if(!answerRes.ok)throw Error('خادم الصوت أعاد HTTP '+answerRes.status+': '+answer.slice(0,500));
+ if(!answer.trim().startsWith('v='))throw Error('خادم الصوت لم يرجع SDP صالحاً');
  await pc.setRemoteDescription({type:'answer',sdp:answer});
  set('لايف — احكي مع ليان','المحادثة الصوتية مفتوحة. الميكروفون شغّال بشكل مستمر.');
- }catch(e){console.error('Layan realtime v13 error',e);set('تعذر تشغيل المحادثة الصوتية',e&&e.message?e.message:'خطأ غير معروف.');S.running=false;cleanup()}finally{S.busy=false}}
+ }catch(e){console.error('Layan realtime v14 error',e);set('تعذر تشغيل المحادثة الصوتية',e&&e.message?e.message:'خطأ غير معروف.');S.running=false;cleanup()}finally{S.busy=false}}
 function cleanup(){if(S.dc){try{S.dc.close()}catch(_){}}S.dc=null;if(S.pc){try{S.pc.close()}catch(_){}}S.pc=null;if(S.stream){S.stream.getTracks().forEach(function(t){try{t.stop()}catch(_){}})}S.stream=null;if(S.audio){try{S.audio.remove()}catch(_){}}S.audio=null}
 function stop(){S.running=false;S.busy=false;cleanup();if(S.root){S.root.classList.remove('open');S.root.style.display='none'}}
 window.startLayanVoice=start;window.openLayanVoice=start;window.stopLayanVoice=stop;window.closeLayanVoice=stop;window.toggleLayanVoice=function(){S.running?stop():start()};interceptVoiceClicks();
