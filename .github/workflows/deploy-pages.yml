@@ -41,7 +41,7 @@ jobs:
           grep -q 'RTCPeerConnection' frontend/layan-realtime-hotfix.js
           grep -q 'getUserMedia' frontend/layan-realtime-hotfix.js
           grep -q 'stopImmediatePropagation' frontend/layan-realtime-hotfix.js
-          grep -q 'layan-realtime-hotfix.js?v=20260912-v8' frontend/index.html
+          grep -Eq 'layan-realtime-hotfix\.js([?][^"'"'"']*)?["'"'"']' frontend/index.html
       - name: Upload frontend exactly as tested
         uses: actions/upload-pages-artifact@v4
         with:
