@@ -32,31 +32,17 @@ jobs:
         uses: actions/configure-pages@v5
         with:
           enablement: true
-      - name: Prepare and validate Company AI frontend
+      - name: Validate Company AI frontend
         run: |
           set -euo pipefail
           test -s frontend/index.html
           test -s frontend/layan-realtime-hotfix.js
-          test -s assets/layan-office.webp.txt
-          mkdir -p frontend/assets
-          python3 - <<'PY'
-          import base64,re
-          from pathlib import Path
-          raw=Path('assets/layan-office.webp.txt').read_text(encoding='utf-8')
-          raw=re.sub(r'[^A-Za-z0-9+/=]','',raw)
-          raw += '='*((-len(raw))%4)
-          data=base64.b64decode(raw,validate=False)
-          if not data.startswith(b'RIFF') or b'WEBP' not in data[:16]: raise SystemExit('Invalid Layan office image data')
-          Path('frontend/assets/layan-office.webp').write_bytes(data)
-          PY
-          test -s frontend/assets/layan-office.webp
           node --check frontend/layan-realtime-hotfix.js
           grep -q 'RTCPeerConnection' frontend/layan-realtime-hotfix.js
           grep -q 'getUserMedia' frontend/layan-realtime-hotfix.js
           grep -q 'stopImmediatePropagation' frontend/layan-realtime-hotfix.js
           grep -q 'layan-realtime-hotfix.js?v=20260912-v8' frontend/index.html
-          grep -q 'layanOfficePortrait' frontend/index.html
-      - name: Upload frontend
+      - name: Upload frontend exactly as tested
         uses: actions/upload-pages-artifact@v4
         with:
           path: './frontend'
