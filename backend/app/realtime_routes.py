@@ -4,7 +4,7 @@ import json
 import os
 
 import httpx
-from fastapi import APIRouter, FastAPI, HTTPException, Request, Response
+from fastapi import APIRouter, FastAPI, HTTPException, Request, Response, Depends
 
 router = APIRouter()
 
@@ -40,9 +40,6 @@ async def create_layan_realtime_call(request: Request) -> Response:
     if not sdp:
         raise HTTPException(status_code=400, detail="Missing WebRTC SDP offer.")
 
-    # OpenAI expects both SDP and session as ordinary multipart form fields.
-    # Supplying a filename makes `sdp` a file upload and the Realtime endpoint
-    # rejects it as a missing form field.
     files = {
         "sdp": (None, sdp),
         "session": (None, json.dumps(_realtime_session())),
@@ -145,6 +142,81 @@ async def create_layan_realtime_session():
         "session": data.get("session", {}),
         "model": REALTIME_MODEL,
     }
+
+
+@router.get("/api/dashboard/summary")
+def dashboard_summary(request: Request):
+    """Read-only executive dashboard data from the real Company AI database.
+
+    The import is intentionally lazy because this router is included while the
+    FastAPI application is being constructed. It also keeps the existing
+    realtime module independent from the database implementation at import time.
+    """
+    try:
+        from .main import Approval, Audit, Entity, engine, now
+        from sqlalchemy import select
+        from sqlalchemy.orm import Session
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Dashboard data layer unavailable: {exc.__class__.__name__}") from exc
+
+    with Session(engine) as session:
+        today = now().date()
+        lead_count = session.query(Entity).filter(Entity.kind == "leads").count()
+        agent_rows = session.scalars(select(Entity).where(Entity.kind == "agent")).all()
+        active_agents = sum(1 for row in agent_rows if str(row.data.get("status", "")).lower() in {"active", "ready", "running"})
+        pending = session.query(Approval).filter(Approval.status == "pending").count()
+
+        # The current data model has no separate conversations table. Count
+        # today's conversation-like audit events when available, without
+        # inventing dashboard numbers.
+        conversation_events = session.scalars(
+            select(Audit).where(Audit.created_at >= today).order_by(Audit.id.desc())
+        ).all()
+        conversation_count = sum(
+            1 for row in conversation_events
+            if any(token in f"{row.action} {row.entity}".lower() for token in ("conversation", "message", "chat", "voice"))
+        )
+
+        # Open commercial opportunities are represented by open quotes,
+        # proposals and orders in the current generic Entity model.
+        opportunity_count = 0
+        for kind in ("quotes", "proposals", "orders"):
+            rows = session.scalars(select(Entity).where(Entity.kind == kind)).all()
+            opportunity_count += sum(
+                1 for row in rows
+                if str(row.data.get("status", "open")).lower() not in {"closed", "cancelled", "canceled", "completed", "rejected"}
+            )
+
+        recent = []
+        for row in conversation_events[:12]:
+            recent.append({
+                "id": row.id,
+                "action": row.action,
+                "entity": row.entity,
+                "entity_id": row.entity_id,
+                "created_at": row.created_at.isoformat(),
+            })
+
+        central = next((row for row in agent_rows if row.data.get("name") == "central"), None)
+        central_status = (central.data.get("status") if central else "unknown") or "unknown"
+
+        return {
+            "status": "ok",
+            "source": "live_database",
+            "updated_at": now().isoformat(),
+            "kpis": {
+                "conversations_today": conversation_count,
+                "leads": lead_count,
+                "open_opportunities": opportunity_count,
+                "active_agents": active_agents,
+                "pending_approvals": pending,
+            },
+            "central_brain": {
+                "status": central_status,
+                "connected": central_status in {"active", "ready", "running"},
+            },
+            "activity": recent,
+        }
 
 
 _original_fastapi_init = FastAPI.__init__
