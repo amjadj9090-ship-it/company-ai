@@ -15,16 +15,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Inject versioned Layan realtime client
+      - name: Inject current versioned Layan realtime client
         run: |
           python - <<'PY'
           from pathlib import Path
+          import re
           p = Path('frontend/index.html')
           s = p.read_text(encoding='utf-8')
-          marker = '<script src="layan-realtime-hotfix.js?v=20260913-01"></script>'
-          if marker not in s:
-              s = s.replace('</body></html>', marker + '</body></html>')
-              p.write_text(s, encoding='utf-8')
+          s = re.sub(r'<script src="layan-realtime-hotfix\.js\?v=[^"]+"></script>', '', s)
+          marker = '<script src="layan-realtime-hotfix.js?v=20260915-01"></script>'
+          s = s.replace('</body></html>', marker + '</body></html>')
+          p.write_text(s, encoding='utf-8')
           print('Layan realtime loader present:', marker in s)
           PY
 
@@ -33,5 +34,5 @@ jobs:
           git config user.name "company-ai-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add frontend/index.html
-          git diff --cached --quiet || git commit -m "Load Layan realtime WebRTC client"
+          git diff --cached --quiet || git commit -m "Refresh Layan realtime client loader"
           git push
