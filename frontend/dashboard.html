@@ -25,7 +25,7 @@
 <script>
 (function(){
   const $=id=>document.getElementById(id);
-  const token=localStorage.getItem('company_ai_access_token')||localStorage.getItem('access_token')||sessionStorage.getItem('company_ai_access_token')||sessionStorage.getItem('access_token');
+  const token=localStorage.getItem('company_ai_access_token')||localStorage.getItem('access_token')||sessionStorage.getItem('company_ai_access_token')||sessionStorage.getItem('access_token')||sessionStorage.getItem('company_ai_admin_token');
   const headers=token?{Authorization:'Bearer '+token}:{};
   function activityText(x){const action=x.action||'نشاط'; const entity=x.entity||'النظام'; return '<div class="row"><div><strong>'+escapeHtml(action)+'</strong><div class="muted">'+escapeHtml(entity)+' #'+escapeHtml(String(x.entity_id||''))+'</div></div><span class="pill">'+formatTime(x.created_at)+'</span></div>'}
   function escapeHtml(v){return String(v).replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]||c))}
@@ -46,7 +46,7 @@
     $('apiStatus').style.color='#ffd37a';
     $('systemMode').textContent=token?'تعذر الاتصال':'تسجيل الدخول مطلوب';
     $('centralStatus').textContent=err.message||'تعذر الاتصال';
-    $('dataNote').textContent=token?'تعذر قراءة بيانات لوحة القيادة من الخادم حالياً.':'لوحة القيادة محمية. سجّل الدخول من نظام Company AI أولاً ليتم تحميل البيانات الحية.';
+    $('dataNote').textContent=token?'تعذر قراءة بيانات لوحة القيادة من الخادم حالياً.':'لوحة القيادة محمية. افتح /admin.html وسجّل الدخول أولاً، ثم عد إلى لوحة القيادة.';
   });
 })();
 </script>
