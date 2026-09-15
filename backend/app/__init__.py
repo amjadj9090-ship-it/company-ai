@@ -11,9 +11,9 @@ def _install_company_ai_routers() -> None:
     from .payments import router as payments_router
     from .public_lifecycle import router as public_lifecycle_router
 
-    original_init = FastAPI.__init__
-    if getattr(FastAPI, "_company_ai_routers_installed", False):
-        return
+    original_init = getattr(FastAPI, "_company_ai_original_init", FastAPI.__init__)
+    if not hasattr(FastAPI, "_company_ai_original_init"):
+        FastAPI._company_ai_original_init = original_init
 
     def company_ai_init(self, *args, **kwargs):
         original_init(self, *args, **kwargs)
@@ -27,8 +27,9 @@ def _install_company_ai_routers() -> None:
             self.include_router(payments_router)
             self.include_router(public_lifecycle_router)
 
-    FastAPI.__init__ = company_ai_init
-    FastAPI._company_ai_routers_installed = True
+    if getattr(FastAPI, "_company_ai_router_wrapper", None) is not company_ai_init:
+        FastAPI.__init__ = company_ai_init
+        FastAPI._company_ai_router_wrapper = company_ai_init
 
 
 _install_company_ai_routers()
