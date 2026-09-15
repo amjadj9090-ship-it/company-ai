@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Optional
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field, model_validator
 
 router = APIRouter(tags=['commercial-finance'])
@@ -50,9 +50,11 @@ def now():
 def package(package_id: str):
     return next((p for p in PACKAGES if p['id'] == package_id), None)
 
-def permission(action: str, standard: bool = True):
+def permission(action: str, standard: bool = True, authenticated: bool = True):
     owner = action in SENSITIVE_ACTIONS or not standard
     if owner:
+        if not authenticated:
+            return {'allowed': False, 'approval_required': True, 'mode': 'owner', 'reason': 'Authentication and owner approval are required for sensitive or non-standard commitments.'}
         return {'allowed': True, 'approval_required': True, 'mode': 'owner', 'reason': 'Owner approval is required for sensitive or non-standard commitments.'}
     return {'allowed': True, 'approval_required': False, 'mode': 'auto', 'reason': 'Standard pre-approved action may proceed automatically.'}
 
@@ -91,7 +93,7 @@ def create_quote(body: QuoteIn):
     if not p:
         raise HTTPException(404, 'Package not found')
     if body.discount_percent > 0:
-        check = permission('nonstandard_discount', standard=False)
+        check = permission('nonstandard_discount', standard=False, authenticated=True)
         return {'status':'approval_required','executed':False,'approval_required':True,'reason':check['reason'],'package':p}
     total = round(p['price'] * body.quantity, 2)
     quote = {'lead_id':body.lead_id,'package_id':p['id'],'title':p['name'],'quantity':body.quantity,'subtotal':total,'discount_percent':0,'total':total,'currency':p['currency'],'notes':body.notes,'status':'prepared','created_at':now().isoformat(),'approval_required':False}
@@ -107,8 +109,9 @@ def list_quotes(lead_id: Optional[int] = None):
     return {'quotes':[q for q in quotes if lead_id is None or q['lead_id']==lead_id]}
 
 @router.post('/api/permissions/check')
-def check_permission(body: PermissionCheckIn):
-    return {'action':body.action, **permission(body.action, body.standard)}
+def check_permission(body: PermissionCheckIn, request: Request):
+    authenticated = bool(request.headers.get('authorization', '').startswith('Bearer '))
+    return {'action':body.action, **permission(body.action, body.standard, authenticated=authenticated)}
 
 @router.get('/api/permissions/policy')
 def policy():
