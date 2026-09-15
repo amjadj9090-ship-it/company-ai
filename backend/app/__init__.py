@@ -16,6 +16,7 @@ def _company_ai_init(self, *args, **kwargs):
     from .dashboard_static import router as dashboard_static_router
     from .payments import router as payments_router
     from .public_lifecycle import router as public_lifecycle_router
+    from .layan_static import router as layan_static_router
 
     self.include_router(brain_router)
     self.include_router(employee_router)
@@ -25,6 +26,7 @@ def _company_ai_init(self, *args, **kwargs):
     self.include_router(dashboard_static_router)
     self.include_router(payments_router)
     self.include_router(public_lifecycle_router)
+    self.include_router(layan_static_router)
 
     # FastAPI's decorators ultimately register through the router. Intercept
     # the two generic entity routes so a literal entity id must be numeric;
