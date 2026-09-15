@@ -33,11 +33,8 @@ class TransactionIn(BaseModel):
     description: str = Field(min_length=2, max_length=1000)
     approval_id: Optional[int] = None
 
-_quotes: list[dict] = []
-_transactions: list[dict] = []
-
 def now():
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(timezone.utc)
 
 def package(package_id: str):
     return next((p for p in PACKAGES if p['id'] == package_id), None)
@@ -46,6 +43,32 @@ def permission(action: str, standard: bool = True):
     if action in SENSITIVE_ACTIONS or not standard:
         return {'allowed': False, 'approval_required': True, 'reason': 'Owner approval is required for sensitive or non-standard commitments.'}
     return {'allowed': True, 'approval_required': False, 'reason': 'Standard pre-approved action may proceed automatically.'}
+
+def db_models():
+    # Lazy import avoids the router/main module circular dependency.
+    from .main import Session, engine, Entity, Approval
+    return Session, engine, Entity, Approval
+
+def save_entity(kind: str, data: dict):
+    Session, engine, Entity, _ = db_models()
+    with Session(engine) as s:
+        item = Entity(kind=kind, data=data, created_at=now(), updated_at=now())
+        s.add(item)
+        s.commit()
+        s.refresh(item)
+        return item.id
+
+def approved_owner_action(approval_id: int, action: str):
+    Session, engine, _, Approval = db_models()
+    with Session(engine) as s:
+        approval = s.get(Approval, approval_id)
+        if approval is None:
+            return False, 'Approval record was not found.'
+        if approval.status != 'approved':
+            return False, 'Approval record is not approved.'
+        if approval.action not in {action, 'financial_payout'}:
+            return False, 'Approval action does not authorize this operation.'
+        return True, 'Approved by owner.'
 
 @router.get('/api/commercial/packages')
 def list_packages():
@@ -60,13 +83,17 @@ def create_quote(body: QuoteIn):
         check = permission('nonstandard_discount', standard=False)
         return {'status':'approval_required','executed':False,'approval_required':True,'reason':check['reason'],'package':p}
     total = round(p['price'] * body.quantity, 2)
-    quote = {'id':len(_quotes)+1,'lead_id':body.lead_id,'package_id':p['id'],'title':p['name'],'quantity':body.quantity,'subtotal':total,'discount_percent':0,'total':total,'currency':p['currency'],'notes':body.notes,'status':'prepared','created_at':now(),'approval_required':False}
-    _quotes.append(quote)
+    quote = {'lead_id':body.lead_id,'package_id':p['id'],'title':p['name'],'quantity':body.quantity,'subtotal':total,'discount_percent':0,'total':total,'currency':p['currency'],'notes':body.notes,'status':'prepared','created_at':now().isoformat(),'approval_required':False}
+    quote['id'] = save_entity('commercial_quote', quote)
     return quote
 
 @router.get('/api/commercial/quotes')
 def list_quotes(lead_id: Optional[int] = None):
-    return {'quotes':[q for q in _quotes if lead_id is None or q['lead_id']==lead_id]}
+    Session, engine, Entity, _ = db_models()
+    with Session(engine) as s:
+        rows = s.query(Entity).filter(Entity.kind == 'commercial_quote').order_by(Entity.id.desc()).all()
+        quotes = [dict(r.data, id=r.id) for r in rows]
+    return {'quotes':[q for q in quotes if lead_id is None or q['lead_id']==lead_id]}
 
 @router.post('/api/permissions/check')
 def check_permission(body: PermissionCheckIn):
@@ -80,11 +107,18 @@ def policy():
 def create_transaction(body: TransactionIn):
     if body.approval_id is None:
         return {'status':'approval_required','executed':False,'approval_required':True,'reason':'Money movement is owner-controlled; an approved approval_id is required.'}
-    tx={'id':len(_transactions)+1,'type':body.transaction_type,'amount':body.amount,'currency':body.currency,'description':body.description,'approval_id':body.approval_id,'status':'approved_pending_execution','created_at':now()}
-    _transactions.append(tx)
+    ok, reason = approved_owner_action(body.approval_id, body.transaction_type)
+    if not ok:
+        return {'status':'approval_required','executed':False,'approval_required':True,'reason':reason}
+    tx = {'type':body.transaction_type,'amount':body.amount,'currency':body.currency,'description':body.description,'approval_id':body.approval_id,'status':'approved_pending_execution','created_at':now().isoformat()}
+    tx['id'] = save_entity('financial_transaction', tx)
     return tx
 
 @router.get('/api/finance/summary')
 def finance_summary():
-    approved_total = sum(x['amount'] for x in _transactions if x['status']=='approved_pending_execution')
-    return {'currency':'USD','pending_approved_transactions':len(_transactions),'pending_approved_amount':round(approved_total,2),'execution_policy':'owner approval required'}
+    Session, engine, Entity, _ = db_models()
+    with Session(engine) as s:
+        rows = s.query(Entity).filter(Entity.kind == 'financial_transaction').all()
+        approved = [r.data for r in rows if r.data.get('status') == 'approved_pending_execution']
+    approved_total = sum(x.get('amount', 0) for x in approved)
+    return {'currency':'USD','pending_approved_transactions':len(approved),'pending_approved_amount':round(approved_total,2),'execution_policy':'owner approval required'}
