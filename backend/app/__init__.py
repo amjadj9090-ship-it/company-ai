@@ -1,14 +1,13 @@
 from fastapi import FastAPI
 
-# Register Company AI feature routers at FastAPI app construction time, before
-# main.py adds generic /api/{kind}/{entity_id} routes. This ordering matters:
-# Starlette returns 405 on the first partial path match, so feature POST routes
-# must be registered before the generic path routes.
+# Feature routers are installed while the app is constructed, before main.py
+# declares generic /api/{kind}/{entity_id} routes.
 _ORIGINAL_FASTAPI_INIT = FastAPI.__init__
 
 
 def _company_ai_init(self, *args, **kwargs):
     _ORIGINAL_FASTAPI_INIT(self, *args, **kwargs)
+
     from .central_brain import router as brain_router
     from .ai_employees import router as employee_router
     from .crm import router as crm_router
@@ -26,6 +25,19 @@ def _company_ai_init(self, *args, **kwargs):
     self.include_router(dashboard_static_router)
     self.include_router(payments_router)
     self.include_router(public_lifecycle_router)
+
+    # FastAPI's decorators ultimately register through the router. Intercept
+    # the two generic entity routes so a literal entity id must be numeric;
+    # otherwise a request such as POST /api/commercial/quotes can be consumed
+    # by GET /api/{kind}/{entity_id} and incorrectly return 405.
+    original_add_api_route = self.router.add_api_route
+
+    def add_api_route_ordered(path, *route_args, **route_kwargs):
+        if path in {'/api/{kind}/{entity_id}', '/api/{kind}/{entity_id}/'}:
+            path = '/api/{kind}/{entity_id:int}'
+        return original_add_api_route(path, *route_args, **route_kwargs)
+
+    self.router.add_api_route = add_api_route_ordered
 
 
 FastAPI.__init__ = _company_ai_init
