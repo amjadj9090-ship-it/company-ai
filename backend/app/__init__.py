@@ -9,6 +9,7 @@ def _install_company_ai_routers() -> None:
     from .commercial_finance import router as commercial_finance_router
     from .dashboard_static import router as dashboard_static_router
     from .payments import router as payments_router
+    from .public_lifecycle import router as public_lifecycle_router
 
     original_init = FastAPI.__init__
     if getattr(FastAPI, "_company_ai_routers_installed", False):
@@ -24,6 +25,7 @@ def _install_company_ai_routers() -> None:
             self.include_router(commercial_finance_router)
             self.include_router(dashboard_static_router)
             self.include_router(payments_router)
+            self.include_router(public_lifecycle_router)
 
     FastAPI.__init__ = company_ai_init
     FastAPI._company_ai_routers_installed = True
