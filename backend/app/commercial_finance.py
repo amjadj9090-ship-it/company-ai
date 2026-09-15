@@ -12,7 +12,7 @@ PACKAGES = [
     {'id':'app-business','name':'Business App','category':'app','price':2500.0,'currency':'USD','pre_approved':True,'description':'Custom business application package.'},
 ]
 
-SENSITIVE_ACTIONS = {'money_transfer','money_withdrawal','contract_signing','nonstandard_discount','nonstandard_commitment','refund','financial_payout'}
+SENSITIVE_ACTIONS = {'money_transfer','money_withdrawal','bank_transfer','bank_withdrawal','contract_signing','nonstandard_discount','nonstandard_commitment','refund','financial_payout'}
 
 class QuoteIn(BaseModel):
     lead_id: int
@@ -51,9 +51,10 @@ def package(package_id: str):
     return next((p for p in PACKAGES if p['id'] == package_id), None)
 
 def permission(action: str, standard: bool = True):
-    if action in SENSITIVE_ACTIONS or not standard:
-        return {'allowed': False, 'approval_required': True, 'reason': 'Owner approval is required for sensitive or non-standard commitments.'}
-    return {'allowed': True, 'approval_required': False, 'reason': 'Standard pre-approved action may proceed automatically.'}
+    owner = action in SENSITIVE_ACTIONS or not standard
+    if owner:
+        return {'allowed': True, 'approval_required': True, 'mode': 'owner', 'reason': 'Owner approval is required for sensitive or non-standard commitments.'}
+    return {'allowed': True, 'approval_required': False, 'mode': 'auto', 'reason': 'Standard pre-approved action may proceed automatically.'}
 
 def db_models():
     from .main import Session, engine, Entity, Approval
@@ -111,7 +112,17 @@ def check_permission(body: PermissionCheckIn):
 
 @router.get('/api/permissions/policy')
 def policy():
-    return {'standard_actions':'AI may execute pre-approved catalog sales and standard service workflows.','owner_only':sorted(SENSITIVE_ACTIONS),'money_movement':'Never execute without explicit owner approval.','contract_signing':'Never execute without explicit owner approval.'}
+    return {
+        'standard_actions':'AI may execute pre-approved catalog sales and standard service workflows.',
+        'owner_only':sorted(SENSITIVE_ACTIONS),
+        'rules': {
+            'standard_sale': {'allowed': True, 'mode': 'auto'},
+            'bank_transfer': {'allowed': True, 'mode': 'owner'},
+            'bank_withdrawal': {'allowed': True, 'mode': 'owner'},
+        },
+        'money_movement':'Never execute without explicit owner approval.',
+        'contract_signing':'Never execute without explicit owner approval.'
+    }
 
 @router.post('/api/finance/transactions')
 def create_transaction(body: TransactionIn):
