@@ -21,6 +21,7 @@ _ORIGINAL_FASTAPI_INIT = FastAPI.__init__
 def _company_ai_init(self, *args, **kwargs):
     _ORIGINAL_FASTAPI_INIT(self, *args, **kwargs)
 
+    from .admin_compat import router as admin_compat_router
     from .central_brain import router as brain_router
     from .ai_employees import router as employee_router
     from .crm import router as crm_router
@@ -31,6 +32,7 @@ def _company_ai_init(self, *args, **kwargs):
     from .public_lifecycle import router as public_lifecycle_router
     from .layan_static import router as layan_static_router
 
+    self.include_router(admin_compat_router)
     self.include_router(brain_router)
     self.include_router(employee_router)
     self.include_router(crm_router)
