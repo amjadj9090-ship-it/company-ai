@@ -4,7 +4,7 @@ import json
 import os
 
 import httpx
-from fastapi import APIRouter, FastAPI, HTTPException, Request, Response, Depends
+from fastapi import APIRouter, FastAPI, HTTPException, Request, Response, Depends, Header
 
 router = APIRouter()
 
@@ -144,13 +144,39 @@ async def create_layan_realtime_session():
     }
 
 
+def _dashboard_admin(authorization=Header(None)):
+    """Authenticate the executive dashboard without exposing business data publicly."""
+    try:
+        from .main import JWT_SECRET, JWT_ALG, UserRow, engine
+        import jwt
+        from jwt import InvalidTokenError as JWTError
+        from sqlalchemy.orm import Session
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Dashboard authentication unavailable: {exc.__class__.__name__}") from exc
+
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Authentication required")
+    try:
+        payload = jwt.decode(authorization[7:], JWT_SECRET, algorithms=[JWT_ALG])
+        user_id = int(payload["sub"])
+    except (JWTError, ValueError, KeyError):
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    with Session(engine) as session:
+        user = session.get(UserRow, user_id)
+        if not user or not user.active:
+            raise HTTPException(status_code=401, detail="User unavailable")
+        if user.role != "admin":
+            raise HTTPException(status_code=403, detail="Admin approval required")
+        return user
+
+
 @router.get("/api/dashboard/summary")
-def dashboard_summary(request: Request):
+def dashboard_summary(request: Request, _admin=Depends(_dashboard_admin)):
     """Read-only executive dashboard data from the real Company AI database.
 
-    The import is intentionally lazy because this router is included while the
-    FastAPI application is being constructed. It also keeps the existing
-    realtime module independent from the database implementation at import time.
+    Dashboard data is admin-only. The HTML shell may be public, but its live
+    business data must never be exposed without authentication.
     """
     try:
         from .main import Approval, Audit, Entity, engine, now
@@ -166,9 +192,6 @@ def dashboard_summary(request: Request):
         active_agents = sum(1 for row in agent_rows if str(row.data.get("status", "")).lower() in {"active", "ready", "running"})
         pending = session.query(Approval).filter(Approval.status == "pending").count()
 
-        # The current data model has no separate conversations table. Count
-        # today's conversation-like audit events when available, without
-        # inventing dashboard numbers.
         conversation_events = session.scalars(
             select(Audit).where(Audit.created_at >= today).order_by(Audit.id.desc())
         ).all()
@@ -177,8 +200,6 @@ def dashboard_summary(request: Request):
             if any(token in f"{row.action} {row.entity}".lower() for token in ("conversation", "message", "chat", "voice"))
         )
 
-        # Open commercial opportunities are represented by open quotes,
-        # proposals and orders in the current generic Entity model.
         opportunity_count = 0
         for kind in ("quotes", "proposals", "orders"):
             rows = session.scalars(select(Entity).where(Entity.kind == kind)).all()
