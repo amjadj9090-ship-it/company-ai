@@ -1,7 +1,14 @@
 from fastapi import FastAPI
 
+# Register Company AI feature routers at FastAPI app construction time, before
+# main.py adds generic /api/{kind}/{entity_id} routes. This ordering matters:
+# Starlette returns 405 on the first partial path match, so feature POST routes
+# must be registered before the generic path routes.
+_ORIGINAL_FASTAPI_INIT = FastAPI.__init__
 
-def _install_company_ai_routers() -> None:
+
+def _company_ai_init(self, *args, **kwargs):
+    _ORIGINAL_FASTAPI_INIT(self, *args, **kwargs)
     from .central_brain import router as brain_router
     from .ai_employees import router as employee_router
     from .crm import router as crm_router
@@ -11,25 +18,14 @@ def _install_company_ai_routers() -> None:
     from .payments import router as payments_router
     from .public_lifecycle import router as public_lifecycle_router
 
-    original_init = getattr(FastAPI, "_company_ai_original_init", FastAPI.__init__)
-    if not hasattr(FastAPI, "_company_ai_original_init"):
-        FastAPI._company_ai_original_init = original_init
-
-    def company_ai_init(self, *args, **kwargs):
-        original_init(self, *args, **kwargs)
-        if getattr(self, "title", "") == "Company AI Global Business OS":
-            self.include_router(brain_router)
-            self.include_router(employee_router)
-            self.include_router(crm_router)
-            self.include_router(crm_sales_router)
-            self.include_router(commercial_finance_router)
-            self.include_router(dashboard_static_router)
-            self.include_router(payments_router)
-            self.include_router(public_lifecycle_router)
-
-    if getattr(FastAPI, "_company_ai_router_wrapper", None) is not company_ai_init:
-        FastAPI.__init__ = company_ai_init
-        FastAPI._company_ai_router_wrapper = company_ai_init
+    self.include_router(brain_router)
+    self.include_router(employee_router)
+    self.include_router(crm_router)
+    self.include_router(crm_sales_router)
+    self.include_router(commercial_finance_router)
+    self.include_router(dashboard_static_router)
+    self.include_router(payments_router)
+    self.include_router(public_lifecycle_router)
 
 
-_install_company_ai_routers()
+FastAPI.__init__ = _company_ai_init
