@@ -11,15 +11,43 @@
 <div class="app">
 <aside class="side"><div class="brand"><div class="logo">AI</div><div>COMPANY AI<br><small style="color:#91a5bb;font-weight:400">Business OS</small></div></div>
 <nav class="nav"><button class="active">▦ لوحة القيادة</button><button>◉ الدماغ المركزي</button><button>◈ موظفو الذكاء الاصطناعي</button><button>♙ العملاء وCRM</button><button>◫ المبيعات</button><button>◇ التقارير</button><button>⚙ الإعدادات والصلاحيات</button></nav>
-<div class="owner">وضع التشغيل<br><strong style="color:#77e6b4">النظام يعمل</strong><br>الالتزامات الحساسة تحتاج موافقة المالك.</div></aside>
+<div class="owner">وضع التشغيل<br><strong id="systemMode" style="color:#77e6b4">جاري التحقق...</strong><br>الالتزامات الحساسة تحتاج موافقة المالك.</div></aside>
 <main class="main">
-<header class="top"><div><div class="eyebrow">COMPANY AI / CONTROL CENTER</div><h1>لوحة التحكم الرئيسية</h1><div class="muted">نظرة تشغيلية موحّدة على الشركة والذكاء الاصطناعي والعملاء.</div></div><div class="status">● جميع الأنظمة الأساسية متصلة</div></header>
-<section class="grid"><div class="card"><div class="muted">المحادثات اليوم</div><div class="metric">128</div><div class="muted">+18% عن أمس</div></div><div class="card"><div class="muted">عملاء محتملون</div><div class="metric">24</div><div class="muted">7 بحاجة لمتابعة</div></div><div class="card"><div class="muted">الفرص المفتوحة</div><div class="metric">12</div><div class="muted">4 عروض جاهزة</div></div><div class="card"><div class="muted">وكلاء نشطون</div><div class="metric">8</div><div class="muted">يعملون ضمن الصلاحيات</div></div></section>
-<section class="section cols"><div class="card"><h2>نشاط الشركة</h2><div class="row"><div><strong>طلب موقع إلكتروني</strong><div class="muted">عميل جديد · منذ 8 دقائق</div></div><span class="pill ok">مؤهل</span></div><div class="row"><div><strong>عرض خدمة تطبيق</strong><div class="muted">Sales Agent · منذ 21 دقيقة</div></div><span class="pill">بانتظار المتابعة</span></div><div class="row"><div><strong>محادثة مع ليان</strong><div class="muted">Voice AI · منذ 34 دقيقة</div></div><span class="pill ok">مكتملة</span></div><div class="row"><div><strong>طلب خصم خاص</strong><div class="muted">يتجاوز القواعد القياسية</div></div><span class="pill warn">موافقة مطلوبة</span></div></div>
-<div class="card"><h2>الدماغ المركزي</h2><div class="agent"><div class="avatar">CB</div><div><strong>Central Brain</strong><div class="muted">Orchestrator · متصل</div></div></div><div class="progress"><i style="width:72%"></i></div><div class="muted" style="margin-top:8px">توزيع المهام والقرارات ضمن الحدود المعتمدة.</div><div class="note">القرارات المالية والقانونية والالتزامات غير القياسية تبقى محمية بموافقة المالك.</div></div></section>
-<section class="section"><h2>موظفو الذكاء الاصطناعي</h2><div class="grid"><div class="card"><div class="agent"><div class="avatar">SA</div><div><strong>Sales Agent</strong><div class="muted">المبيعات والتأهيل</div></div></div><div class="progress"><i style="width:84%"></i></div></div><div class="card"><div class="agent"><div class="avatar">LY</div><div><strong>Layan</strong><div class="muted">Voice / Customer AI</div></div></div><div class="progress"><i style="width:91%"></i></div></div><div class="card"><div class="agent"><div class="avatar">MK</div><div><strong>Marketing Agent</strong><div class="muted">التسويق وجذب العملاء</div></div></div><div class="progress"><i style="width:63%"></i></div></div><div class="card"><div class="agent"><div class="avatar">BI</div><div><strong>Business Intelligence</strong><div class="muted">التحليل والتقارير</div></div></div><div class="progress"><i style="width:57%"></i></div></div></div></section>
+<header class="top"><div><div class="eyebrow">COMPANY AI / CONTROL CENTER</div><h1>لوحة التحكم الرئيسية</h1><div class="muted">نظرة تشغيلية موحّدة على الشركة والذكاء الاصطناعي والعملاء.</div></div><div id="apiStatus" class="status">● جاري تحميل البيانات الحية...</div></header>
+<section class="grid"><div class="card"><div class="muted">المحادثات اليوم</div><div id="conversations" class="metric">—</div><div class="muted">من قاعدة البيانات الفعلية</div></div><div class="card"><div class="muted">عملاء محتملون</div><div id="leads" class="metric">—</div><div class="muted">CRM / Leads</div></div><div class="card"><div class="muted">الفرص المفتوحة</div><div id="opportunities" class="metric">—</div><div class="muted">عروض ومقترحات وطلبات مفتوحة</div></div><div class="card"><div class="muted">وكلاء نشطون</div><div id="agents" class="metric">—</div><div class="muted">ضمن نظام الصلاحيات</div></div></section>
+<section class="section cols"><div class="card"><h2>نشاط الشركة — مباشر</h2><div id="activity"><div class="muted">جاري تحميل النشاط...</div></div></div>
+<div class="card"><h2>الدماغ المركزي</h2><div class="agent"><div class="avatar">CB</div><div><strong>Central Brain</strong><div id="centralStatus" class="muted">جاري التحقق...</div></div></div><div class="progress"><i id="centralProgress" style="width:10%"></i></div><div class="muted" style="margin-top:8px">توزيع المهام والقرارات ضمن الحدود المعتمدة.</div><div class="note">القرارات المالية والقانونية والالتزامات غير القياسية تبقى محمية بموافقة المالك.</div></div></section>
+<section class="section"><h2>موظفو الذكاء الاصطناعي</h2><div class="grid"><div class="card"><div class="agent"><div class="avatar">SA</div><div><strong>Sales Agent</strong><div class="muted">المبيعات والتأهيل</div></div></div><div class="progress"><i style="width:84%"></i></div></div><div class="card"><div class="agent"><div class="avatar">LY</div><div><strong>Layan</strong><div class="muted">Voice / Customer AI</div></div></div><div class="progress"><i style="width:91%"></i></div></div><div class="card"><div class="agent"><div class="agent"><div class="avatar">MK</div><div><strong>Marketing Agent</strong><div class="muted">التسويق وجذب العملاء</div></div></div><div class="progress"><i style="width:63%"></i></div></div><div class="card"><div class="agent"><div class="avatar">BI</div><div><strong>Business Intelligence</strong><div class="muted">التحليل والتقارير</div></div></div><div class="progress"><i style="width:57%"></i></div></div></div></section>
 <section class="section"><h2>إجراءات سريعة</h2><div class="quick"><button>＋ إضافة عميل جديد</button><button>◈ مراجعة الفرص والمبيعات</button><button>◎ مراجعة موافقات المالك</button></div></section>
-<div class="note">الإصدار: Company AI v8.5.0 · هذه الواجهة هي طبقة التحكم، وسيتم ربط المؤشرات والبيانات الحية بالـAPI والـCRM والـCentral Brain ضمن مراحل الربط التالية.</div>
+<div id="dataNote" class="note">مصدر البيانات: API حي مرتبط بقاعدة بيانات Company AI. لا توجد أرقام تجريبية في مؤشرات لوحة القيادة.</div>
 </main></div>
 <div class="mobileNav"><button>▦<br>الرئيسية</button><button>◈<br>الوكلاء</button><button>♙<br>CRM</button><button>⚙<br>الإعدادات</button></div>
+<script>
+(function(){
+  const $=id=>document.getElementById(id);
+  const token=localStorage.getItem('company_ai_access_token')||localStorage.getItem('access_token')||sessionStorage.getItem('company_ai_access_token')||sessionStorage.getItem('access_token');
+  const headers=token?{Authorization:'Bearer '+token}:{};
+  function activityText(x){const action=x.action||'نشاط'; const entity=x.entity||'النظام'; return '<div class="row"><div><strong>'+escapeHtml(action)+'</strong><div class="muted">'+escapeHtml(entity)+' #'+escapeHtml(String(x.entity_id||''))+'</div></div><span class="pill">'+formatTime(x.created_at)+'</span></div>'}
+  function escapeHtml(v){return String(v).replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]||c))}
+  function formatTime(v){try{return new Date(v).toLocaleString('ar',{dateStyle:'short',timeStyle:'short'})}catch(e){return v||''}}
+  fetch('/api/dashboard/summary',{headers:headers,cache:'no-store'}).then(async r=>{const data=await r.json().catch(()=>({})); if(!r.ok) throw new Error(data.detail||('HTTP '+r.status)); return data}).then(data=>{
+    $('conversations').textContent=data.kpis.conversations_today;
+    $('leads').textContent=data.kpis.leads;
+    $('opportunities').textContent=data.kpis.open_opportunities;
+    $('agents').textContent=data.kpis.active_agents;
+    $('centralStatus').textContent=(data.central_brain.connected?'متصل':'غير متصل')+' · '+data.central_brain.status;
+    $('centralProgress').style.width=data.central_brain.connected?'100%':'20%';
+    $('apiStatus').textContent='● البيانات الحية متصلة';
+    $('systemMode').textContent='النظام يعمل';
+    const items=data.activity||[]; $('activity').innerHTML=items.length?items.map(activityText).join(''):'لا يوجد نشاط مسجل بعد.';
+    $('dataNote').textContent='مصدر البيانات: قاعدة بيانات Company AI الحية · آخر تحديث: '+formatTime(data.updated_at)+' · الموافقات المعلقة: '+data.kpis.pending_approvals;
+  }).catch(err=>{
+    $('apiStatus').textContent='● تعذر تحميل البيانات الحية';
+    $('apiStatus').style.color='#ffd37a';
+    $('systemMode').textContent=token?'تعذر الاتصال':'تسجيل الدخول مطلوب';
+    $('centralStatus').textContent=err.message||'تعذر الاتصال';
+    $('dataNote').textContent=token?'تعذر قراءة بيانات لوحة القيادة من الخادم حالياً.':'لوحة القيادة محمية. سجّل الدخول من نظام Company AI أولاً ليتم تحميل البيانات الحية.';
+  });
+})();
+</script>
 </body></html>
