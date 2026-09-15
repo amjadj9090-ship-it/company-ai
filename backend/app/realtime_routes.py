@@ -5,6 +5,7 @@ import os
 
 import httpx
 from fastapi import APIRouter, FastAPI, HTTPException, Request, Response, Depends, Header
+from starlette.responses import FileResponse
 
 router = APIRouter()
 
@@ -24,6 +25,12 @@ def _realtime_session() -> dict:
             }
         },
     }
+
+
+@router.get("/admin.html", include_in_schema=False)
+def admin_page():
+    frontend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend"))
+    return FileResponse(os.path.join(frontend_dir, "admin.html"), media_type="text/html")
 
 
 @router.post("/api/voice-avatar/realtime-call")
