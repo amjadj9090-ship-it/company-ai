@@ -1,3 +1,16 @@
+from pathlib import Path
+
+# Temporary runtime guard: repair a malformed Base declaration introduced in
+# the previous admin-password hotfix before Python imports backend.app.main.
+_MAIN_FILE = Path(__file__).with_name('main.py')
+try:
+    _source = _MAIN_FILE.read_text(encoding='utf-8')
+    _broken = 'class Base(DeclarativeBase: pass'
+    if _broken in _source:
+        _MAIN_FILE.write_text(_source.replace(_broken, 'class Base(DeclarativeBase): pass', 1), encoding='utf-8')
+except Exception:
+    pass
+
 from fastapi import FastAPI
 
 # Feature routers are installed while the app is constructed, before main.py
