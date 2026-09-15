@@ -2,7 +2,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 router = APIRouter(tags=['commercial-finance'])
 
@@ -22,9 +22,20 @@ class QuoteIn(BaseModel):
     notes: Optional[str] = None
 
 class PermissionCheckIn(BaseModel):
-    action: str
+    action: Optional[str] = None
     standard: bool = True
     amount: Optional[float] = Field(default=None, ge=0)
+    data: Optional[dict] = None
+
+    @model_validator(mode='after')
+    def normalize(self):
+        if not self.action and isinstance(self.data, dict):
+            self.action = str(self.data.get('action', '')).strip() or None
+            if 'standard' in self.data:
+                self.standard = bool(self.data.get('standard'))
+        if not self.action:
+            raise ValueError('action is required')
+        return self
 
 class TransactionIn(BaseModel):
     transaction_type: str
@@ -45,7 +56,6 @@ def permission(action: str, standard: bool = True):
     return {'allowed': True, 'approval_required': False, 'reason': 'Standard pre-approved action may proceed automatically.'}
 
 def db_models():
-    # Lazy import avoids the router/main module circular dependency.
     from .main import Session, engine, Entity, Approval
     return Session, engine, Entity, Approval
 
