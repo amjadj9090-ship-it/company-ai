@@ -21,7 +21,7 @@ jobs:
         run: pip install -r requirements.txt
       - name: Run backend tests
         env:
-          PYTHONPATH: .
+          PYTHONPATH: ..
           ENVIRONMENT: test
           JWT_SECRET: test-secret-for-ci-only-32-characters-min
           PASSWORD_PEPPER: test-pepper-for-ci-only

@@ -1,8 +1,8 @@
 from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Optional
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel, Field, model_validator
 
 router = APIRouter(tags=['commercial-finance'])
 
@@ -12,7 +12,7 @@ PACKAGES = [
     {'id':'app-business','name':'Business App','category':'app','price':2500.0,'currency':'USD','pre_approved':True,'description':'Custom business application package.'},
 ]
 
-SENSITIVE_ACTIONS = {'money_transfer','money_withdrawal','contract_signing','nonstandard_discount','nonstandard_commitment','refund','financial_payout'}
+SENSITIVE_ACTIONS = {'money_transfer','money_withdrawal','bank_transfer','bank_withdrawal','contract_signing','nonstandard_discount','nonstandard_commitment','refund','financial_payout'}
 
 class QuoteIn(BaseModel):
     lead_id: int
@@ -22,9 +22,20 @@ class QuoteIn(BaseModel):
     notes: Optional[str] = None
 
 class PermissionCheckIn(BaseModel):
-    action: str
+    action: Optional[str] = None
     standard: bool = True
     amount: Optional[float] = Field(default=None, ge=0)
+    data: Optional[dict] = None
+
+    @model_validator(mode='after')
+    def normalize(self):
+        if not self.action and isinstance(self.data, dict):
+            self.action = str(self.data.get('action', '')).strip() or None
+            if 'standard' in self.data:
+                self.standard = bool(self.data.get('standard'))
+        if not self.action:
+            raise ValueError('action is required')
+        return self
 
 class TransactionIn(BaseModel):
     transaction_type: str
@@ -39,13 +50,15 @@ def now():
 def package(package_id: str):
     return next((p for p in PACKAGES if p['id'] == package_id), None)
 
-def permission(action: str, standard: bool = True):
-    if action in SENSITIVE_ACTIONS or not standard:
-        return {'allowed': False, 'approval_required': True, 'reason': 'Owner approval is required for sensitive or non-standard commitments.'}
-    return {'allowed': True, 'approval_required': False, 'reason': 'Standard pre-approved action may proceed automatically.'}
+def permission(action: str, standard: bool = True, authenticated: bool = True):
+    owner = action in SENSITIVE_ACTIONS or not standard
+    if owner:
+        if not authenticated:
+            return {'allowed': False, 'approval_required': True, 'mode': 'owner', 'reason': 'Authentication and owner approval are required for sensitive or non-standard commitments.'}
+        return {'allowed': True, 'approval_required': True, 'mode': 'owner', 'reason': 'Owner approval is required for sensitive or non-standard commitments.'}
+    return {'allowed': True, 'approval_required': False, 'mode': 'auto', 'reason': 'Standard pre-approved action may proceed automatically.'}
 
 def db_models():
-    # Lazy import avoids the router/main module circular dependency.
     from .main import Session, engine, Entity, Approval
     return Session, engine, Entity, Approval
 
@@ -80,7 +93,7 @@ def create_quote(body: QuoteIn):
     if not p:
         raise HTTPException(404, 'Package not found')
     if body.discount_percent > 0:
-        check = permission('nonstandard_discount', standard=False)
+        check = permission('nonstandard_discount', standard=False, authenticated=True)
         return {'status':'approval_required','executed':False,'approval_required':True,'reason':check['reason'],'package':p}
     total = round(p['price'] * body.quantity, 2)
     quote = {'lead_id':body.lead_id,'package_id':p['id'],'title':p['name'],'quantity':body.quantity,'subtotal':total,'discount_percent':0,'total':total,'currency':p['currency'],'notes':body.notes,'status':'prepared','created_at':now().isoformat(),'approval_required':False}
@@ -96,12 +109,23 @@ def list_quotes(lead_id: Optional[int] = None):
     return {'quotes':[q for q in quotes if lead_id is None or q['lead_id']==lead_id]}
 
 @router.post('/api/permissions/check')
-def check_permission(body: PermissionCheckIn):
-    return {'action':body.action, **permission(body.action, body.standard)}
+def check_permission(body: PermissionCheckIn, request: Request):
+    authenticated = bool(request.headers.get('authorization', '').startswith('Bearer '))
+    return {'action':body.action, **permission(body.action, body.standard, authenticated=authenticated)}
 
 @router.get('/api/permissions/policy')
 def policy():
-    return {'standard_actions':'AI may execute pre-approved catalog sales and standard service workflows.','owner_only':sorted(SENSITIVE_ACTIONS),'money_movement':'Never execute without explicit owner approval.','contract_signing':'Never execute without explicit owner approval.'}
+    return {
+        'standard_actions':'AI may execute pre-approved catalog sales and standard service workflows.',
+        'owner_only':sorted(SENSITIVE_ACTIONS),
+        'rules': {
+            'standard_sale': {'allowed': True, 'mode': 'auto'},
+            'bank_transfer': {'allowed': True, 'mode': 'owner'},
+            'bank_withdrawal': {'allowed': True, 'mode': 'owner'},
+        },
+        'money_movement':'Never execute without explicit owner approval.',
+        'contract_signing':'Never execute without explicit owner approval.'
+    }
 
 @router.post('/api/finance/transactions')
 def create_transaction(body: TransactionIn):
