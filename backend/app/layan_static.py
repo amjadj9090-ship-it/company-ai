@@ -5,7 +5,9 @@ from fastapi.responses import FileResponse, Response
 
 router = APIRouter()
 
-_HOTFIX = Path(__file__).resolve().parents[2] / "frontend" / "layan-realtime-hotfix.js"
+_FRONTEND = Path(__file__).resolve().parents[2] / "frontend"
+_HOTFIX = _FRONTEND / "layan-realtime-hotfix.js"
+_INTERACTIVE = _FRONTEND / "company-ai-interactive.js"
 
 # Keep the public Layan asset URL alive even when the binary portrait asset is
 # not present in the deployment bundle. This prevents a broken-image failure
@@ -15,7 +17,14 @@ _LAYAN_FALLBACK_SVG = """<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0
 
 @router.get("/layan-realtime-hotfix.js", include_in_schema=False)
 def layan_realtime_hotfix():
-    return FileResponse(_HOTFIX, media_type="application/javascript")
+    # The homepage already loads this URL. Bundle the public interaction bridge
+    # here as well so the existing production index becomes functional without
+    # changing the large HTML asset or risking duplicate script tags.
+    try:
+        content = _HOTFIX.read_text(encoding="utf-8") + "\n" + _INTERACTIVE.read_text(encoding="utf-8")
+        return Response(content=content, media_type="application/javascript")
+    except Exception:
+        return FileResponse(_HOTFIX, media_type="application/javascript")
 
 
 @router.get("/assets/layan-office.webp", include_in_schema=False)
