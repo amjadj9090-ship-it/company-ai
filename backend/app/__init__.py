@@ -1,4 +1,6 @@
 from pathlib import Path
+import logging
+import uuid
 
 # Temporary runtime guard: repair a malformed Base declaration introduced in
 # the previous admin-password hotfix before Python imports backend.app.main.
@@ -11,8 +13,12 @@ try:
 except Exception:
     pass
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from fastapi import HTTPException
 
+_LOG = logging.getLogger('company_ai')
 _ORIGINAL_FASTAPI_INIT = FastAPI.__init__
 
 
@@ -33,6 +39,14 @@ def _resort_routes(router):
     router.routes.sort(key=_route_score, reverse=True)
 
 
+def _error_response(request: Request, status_code: int, error_code: str, detail, request_id: str):
+    return JSONResponse(
+        status_code=status_code,
+        content={'detail': detail, 'error_code': error_code, 'request_id': request_id},
+        headers={'X-Request-ID': request_id},
+    )
+
+
 def _company_ai_init(self, *args, **kwargs):
     _ORIGINAL_FASTAPI_INIT(self, *args, **kwargs)
 
@@ -48,7 +62,6 @@ def _company_ai_init(self, *args, **kwargs):
     from .public_lifecycle import router as public_lifecycle_router
     from .layan_static import router as layan_static_router
     from .ui_api import router as ui_api_router
-    from .live_ui import router as live_ui_router
 
     self.include_router(live_ui_router)
     self.include_router(admin_compat_router)
@@ -64,6 +77,36 @@ def _company_ai_init(self, *args, **kwargs):
     self.include_router(layan_static_router)
     self.include_router(ui_api_router)
     _resort_routes(self.router)
+
+    async def _request_id_middleware(request: Request, call_next):
+        request_id = request.headers.get('X-Request-ID') or uuid.uuid4().hex
+        request.state.request_id = request_id
+        try:
+            response = await call_next(request)
+        except Exception:
+            _LOG.exception('Unhandled application error request_id=%s path=%s', request_id, request.url.path)
+            raise
+        response.headers['X-Request-ID'] = request_id
+        return response
+
+    self.middleware('http')(_request_id_middleware)
+
+    async def _http_exception_handler(request: Request, exc: HTTPException):
+        request_id = getattr(request.state, 'request_id', uuid.uuid4().hex)
+        return _error_response(request, exc.status_code, 'HTTP_ERROR', exc.detail, request_id)
+
+    async def _validation_exception_handler(request: Request, exc: RequestValidationError):
+        request_id = getattr(request.state, 'request_id', uuid.uuid4().hex)
+        return _error_response(request, 422, 'VALIDATION_ERROR', exc.errors(), request_id)
+
+    async def _unhandled_exception_handler(request: Request, exc: Exception):
+        request_id = getattr(request.state, 'request_id', uuid.uuid4().hex)
+        _LOG.exception('Unhandled application error request_id=%s path=%s', request_id, request.url.path, exc_info=exc)
+        return _error_response(request, 500, 'INTERNAL_SERVER_ERROR', 'Internal server error', request_id)
+
+    self.add_exception_handler(HTTPException, _http_exception_handler)
+    self.add_exception_handler(RequestValidationError, _validation_exception_handler)
+    self.add_exception_handler(Exception, _unhandled_exception_handler)
 
     # FastAPI decorators ultimately register through the router. Intercept the
     # generic entity-id route so literal feature routes cannot be shadowed by
