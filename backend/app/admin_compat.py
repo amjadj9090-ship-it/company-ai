@@ -28,7 +28,7 @@ def _admin_user():
 def admin_list(kind: str, u=Depends(_admin_user)):
     Entity, _, _, _ = _deps()
     allowed_kinds = {
-        "leads": "crm_lead", "customers": "customer", "proposals": "proposal", "orders": "order",
+        "leads": "crm_lead", "customers": "customer", "proposals": "proposal", "orders": "orders",
         "invoices": "invoice", "projects": "project", "tasks": "task", "products": "product",
         "contracts": "contract", "tickets": "ticket", "suppliers": "supplier", "campaigns": "campaign",
         "partners": "partner", "content": "content", "marketplace": "marketplace",
