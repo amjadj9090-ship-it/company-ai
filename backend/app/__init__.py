@@ -30,6 +30,11 @@ def _company_ai_init(self, *args, **kwargs):
     from .public_lifecycle import router as public_lifecycle_router
     from .layan_static import router as layan_static_router
     from .ui_api import router as ui_api_router
+    from .live_ui import router as live_ui_router
+
+    # The live UI router must be first so the public homepage served by the
+    # production app cannot be shadowed by main.py's legacy FileResponse route.
+    self.include_router(live_ui_router)
 
     # Specific feature routes are installed before main.py generic entity routes.
     self.include_router(admin_compat_router)
