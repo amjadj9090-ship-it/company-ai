@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 
 import httpx
@@ -8,9 +9,11 @@ from fastapi import APIRouter, FastAPI, HTTPException, Request, Response, Depend
 from starlette.responses import FileResponse
 
 router = APIRouter()
+LOGGER = logging.getLogger("company_ai.realtime")
 
 REALTIME_MODEL = "gpt-realtime-2.1"
 OPENAI_REALTIME_CALLS_URL = "https://api.openai.com/v1/realtime/calls"
+OPENAI_CLIENT_SECRETS_URL = "https://api.openai.com/v1/realtime/client_secrets"
 
 LAYAN_INSTRUCTIONS = """You are Layan, the voice AI assistant for Company AI. Speak naturally, warmly, and intelligently in the visitor's language. Detect the visitor's language and dialect automatically and respond in the same language and dialect when practical, supporting all languages and regional dialects rather than restricting the conversation to a fixed dialect. Arabic dialects including Syrian/Levantine Arabic and Egyptian Arabic are supported, as are other regional dialects. If the visitor explicitly asks for a particular language or dialect, follow that preference. Keep answers clear and practical. Company AI owner approval is required before sensitive commitments such as transfers, withdrawals, signing contracts, or non-standard binding commitments. You may discuss, qualify leads, prepare quotes and drafts, but do not claim that a sensitive commitment was finalized without owner approval."""
 
@@ -21,6 +24,20 @@ def _realtime_session() -> dict:
         "model": REALTIME_MODEL,
         "audio": {"output": {"voice": "marin"}},
     }
+
+
+def _provider_headers(api_key: str, *, json_content: bool = False) -> dict[str, str]:
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "OpenAI-Safety-Identifier": "company-ai-public",
+    }
+    if json_content:
+        headers["Content-Type"] = "application/json"
+    return headers
+
+
+def _provider_error(exc: httpx.HTTPError) -> HTTPException:
+    return HTTPException(status_code=502, detail=f"Voice provider connection failed: {exc.__class__.__name__}")
 
 
 @router.get("/admin.html", include_in_schema=False)
@@ -45,21 +62,24 @@ async def create_layan_realtime_call(request: Request) -> Response:
         raise HTTPException(status_code=400, detail="Missing WebRTC SDP offer.")
 
     files = {"sdp": (None, sdp), "session": (None, json.dumps(_realtime_session()))}
-    headers = {"Authorization": f"Bearer {api_key}", "OpenAI-Safety-Identifier": "company-ai-public"}
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(OPENAI_REALTIME_CALLS_URL, headers=headers, files=files)
+            response = await client.post(
+                OPENAI_REALTIME_CALLS_URL,
+                headers=_provider_headers(api_key),
+                files=files,
+            )
     except httpx.HTTPError as exc:
-        print(f"[LAYAN_REALTIME] provider connection error: {exc.__class__.__name__}", flush=True)
-        raise HTTPException(status_code=502, detail=f"Voice provider connection failed: {exc.__class__.__name__}") from exc
+        LOGGER.warning("Layan realtime provider connection failed: %s", exc.__class__.__name__)
+        raise _provider_error(exc) from exc
     if response.status_code >= 400:
         detail = response.text[:4000]
-        print(f"[LAYAN_REALTIME] OpenAI provider rejected call: status={response.status_code} body={detail}", flush=True)
+        LOGGER.warning("Layan realtime provider rejected call: status=%s", response.status_code)
         raise HTTPException(status_code=response.status_code, detail=f"Realtime provider error: HTTP {response.status_code}: {detail}")
     answer_sdp = response.text.strip()
     if not answer_sdp:
         raise HTTPException(status_code=502, detail="Realtime provider returned an empty SDP answer.")
-    print("[LAYAN_REALTIME] WebRTC handshake succeeded", flush=True)
+    LOGGER.info("Layan WebRTC handshake succeeded")
     return Response(content=answer_sdp, media_type="application/sdp")
 
 
@@ -80,12 +100,15 @@ async def create_layan_realtime_session():
     if not api_key:
         raise HTTPException(status_code=503, detail="Voice service is not configured yet: OPENAI_API_KEY is missing on the server.")
     payload = {"expires_after": {"anchor": "created_at", "seconds": 600}, "session": _realtime_session()}
-    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json", "OpenAI-Safety-Identifier": "company-ai-public"}
     try:
         async with httpx.AsyncClient(timeout=20.0) as client:
-            response = await client.post("https://api.openai.com/v1/realtime/client_secrets", headers=headers, json=payload)
+            response = await client.post(
+                OPENAI_CLIENT_SECRETS_URL,
+                headers=_provider_headers(api_key, json_content=True),
+                json=payload,
+            )
     except httpx.HTTPError as exc:
-        raise HTTPException(status_code=502, detail=f"Voice provider connection failed: {exc.__class__.__name__}") from exc
+        raise _provider_error(exc) from exc
     if response.status_code >= 400:
         try:
             detail = response.json()
