@@ -28,6 +28,7 @@ jobs:
       - name: Check production homepage
         run: |
           set -euo pipefail
-          status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 60 https://company-ai-0mya.onrender.com/)"
+          status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 60 https://company-ai-0mya.onrender.com/)
           test "$status" = "200"
           echo "Production homepage HTTP status: $status"
+
