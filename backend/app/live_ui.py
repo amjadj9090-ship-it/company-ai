@@ -5,7 +5,7 @@ from fastapi.responses import HTMLResponse, FileResponse, Response
 router = APIRouter()
 ROOT = Path(__file__).resolve().parents[2]
 FRONTEND = ROOT / 'frontend'
-BRIDGE_VERSION = '20260916-04'
+BRIDGE_VERSION = '20260916-05'
 
 @router.get('/', include_in_schema=False)
 def live_home():
@@ -40,5 +40,5 @@ def ui_version():
     return Response(
         content=BRIDGE_VERSION,
         media_type='text/plain',
-        headers={'Cache-Control': 'no-store', 'X-Company-AI-UI': BRIDGE_VERSION},
+        headers={'Cache-Control':'no-store','X-Company-AI-UI':BRIDGE_VERSION},
     )
