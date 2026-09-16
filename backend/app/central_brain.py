@@ -49,7 +49,49 @@ def plan(message: str, context: dict[str, Any] | None = None) -> BrainDecision:
         required_approval = True
         priority = "high"
         actions = ("verify_request", "prepare_draft", "create_owner_approval")
-    elif any(k in text for k in ("website", "site", "app", "application", "موقع", "تطبيق", "برمجة")):
+    elif any(k in text for k in ("feasibility", "business plan", "startup", "جدوى", "ريادة", "مشروع جديد", "استشارة مجانية", "استشارة أولية")):
+        department = "entrepreneurship"
+        intent = "entrepreneurship_or_feasibility"
+        approval_mode = "auto_standard"
+        required_approval = False
+        priority = "normal"
+        actions = ("qualify_idea", "analyze_market", "prepare_feasibility_or_roadmap")
+    elif any(k in text for k in ("cybersecurity", "cyber security", "security audit", "أمن سيبراني", "حماية رقمية", "اختبار أمني", "ثغرات")):
+        department = "cybersecurity"
+        intent = "cybersecurity_request"
+        approval_mode = "supervised"
+        required_approval = bool(context.get("authorized_testing")) is False
+        priority = "high"
+        actions = ("define_scope", "verify_authorization", "prepare_defensive_assessment")
+    elif any(k in text for k in ("monitoring", "operations", "uptime", "monitor", "مراقبة", "تشغيل مستمر", "تشغيل", "أعطال", "نسخ احتياطية")):
+        department = "monitoring_operations"
+        intent = "monitoring_operations_request"
+        approval_mode = "auto_standard"
+        required_approval = False
+        priority = "normal"
+        actions = ("inspect_services", "define_alerts", "prepare_operations_plan")
+    elif any(k in text for k in ("website growth", "website audit", "site audit", "نمو الموقع", "فحص الموقع", "تقييم الموقع", "تحسين الموقع")):
+        department = "website_growth"
+        intent = "website_growth_request"
+        approval_mode = "auto_standard"
+        required_approval = False
+        priority = "normal"
+        actions = ("inspect_site", "identify_growth_gaps", "prepare_optimization_plan")
+    elif any(k in text for k in ("customer support", "support", "خدمة العملاء", "دعم العملاء", "شكاوى")):
+        department = "customer_support"
+        intent = "customer_support_request"
+        approval_mode = "auto_standard"
+        required_approval = False
+        priority = "normal"
+        actions = ("capture_context", "resolve_standard_request", "escalate_if_needed")
+    elif any(k in text for k in ("app", "application", "mobile", "تطبيق", "ابلكيشن")):
+        department = "app_development"
+        intent = "app_development_request"
+        approval_mode = "auto_standard"
+        required_approval = bool(context.get("non_standard"))
+        priority = "normal"
+        actions = ("qualify_need", "define_app_scope", "prepare_technical_plan")
+    elif any(k in text for k in ("website", "site", "موقع", "برمجة")):
         department = "digital_services"
         intent = "service_request"
         approval_mode = "auto_standard"
