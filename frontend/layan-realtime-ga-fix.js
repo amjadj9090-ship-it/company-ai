@@ -56,14 +56,6 @@
 
   function setActive(on) { ensureOverlay().classList.toggle('active', !!on); }
 
-  async function getEphemeralKey() {
-    var response = await fetch(apiBase() + '/api/voice-avatar/public-session', {method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
-    var data = await response.json().catch(function(){ return {}; });
-    if (!response.ok) throw new Error(data.detail || ('Voice backend returned HTTP ' + response.status));
-    if (!data.value || !String(data.value).startsWith('ek_')) throw new Error('Voice backend returned no valid ephemeral key');
-    return data.value;
-  }
-
   async function startLayanVoice() {
     if (state.running) return;
     state.running = true;
@@ -71,7 +63,6 @@
     root.classList.add('open');
     ui('جاري الاتصال…','عم نجهّز جلسة الصوت المباشرة.','جاري إنشاء جلسة آمنة…');
     try {
-      var key = await getEphemeralKey();
       state.mic = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1}});
       state.pc = new RTCPeerConnection();
       state.audio = document.createElement('audio'); state.audio.autoplay = true; state.audio.playsInline = true; state.audio.style.display='none'; document.body.appendChild(state.audio);
@@ -93,9 +84,10 @@
       };
       state.pc.onconnectionstatechange = function(){ if(!state.pc)return; if(state.pc.connectionState==='connected') ui('متصل — احكي مع ليان','الجلسة لايف ومستمرة حتى تضغط إنهاء.','بانتظار كلامك…'); };
       var offer=await state.pc.createOffer(); await state.pc.setLocalDescription(offer);
-      var answerResponse=await fetch('https://api.openai.com/v1/realtime/calls',{method:'POST',headers:{'Authorization':'Bearer '+key,'Content-Type':'application/sdp'},body:offer.sdp});
+      var answerResponse=await fetch(apiBase()+'/api/voice-avatar/realtime-call',{method:'POST',headers:{'Content-Type':'application/sdp'},body:offer.sdp,cache:'no-store'});
       var answer=await answerResponse.text();
-      if(!answerResponse.ok) throw new Error(answer||('Realtime call failed with HTTP '+answerResponse.status));
+      if(!answerResponse.ok) throw new Error(answer||('Voice backend returned HTTP '+answerResponse.status));
+      if(!answer.trim().startsWith('v=')) throw new Error('Voice backend returned an invalid SDP answer');
       await state.pc.setRemoteDescription({type:'answer',sdp:answer});
     } catch(err) {
       console.error('Layan live voice failed',err);
