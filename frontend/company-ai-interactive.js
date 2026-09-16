@@ -17,7 +17,11 @@
     ['growth','النمو وتطوير الأعمال','تحليل السوق، العملاء، التسعير وخطة النمو.']
   ];
 
-  function esc(s){return String(s||'').replace(/[&<>\"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\\':'&quot;','"':'&quot;'}[c]})}
+  function apiBase(){
+    return window.COMPANY_AI_API_BASE || (location.hostname.endsWith('github.io') ? 'https://company-ai-0mya.onrender.com' : '');
+  }
+  function apiUrl(path){return apiBase()+path}
+  function esc(s){return String(s||'').replace(/[&<>\\"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\\':'&quot;','"':'&quot;'}[c]})}
   function textOf(el){return ((el.innerText||el.textContent||'')+' '+(el.getAttribute&&el.getAttribute('aria-label')||'')+' '+(el.getAttribute&&el.getAttribute('title')||'')).trim()}
   function matchService(t){
     t=String(t||'').toLowerCase();
@@ -58,14 +62,14 @@
     if(!name||!email||need.length<3){st.textContent='يرجى تعبئة الاسم والبريد ووصف المطلوب.';return}
     st.textContent='جاري إرسال الطلب…';
     try{
-      var r=await fetch('/api/leads/public',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name,email:email,company:company||null,country:null,language:(navigator.language||'ar').split('-')[0],need:'['+m.dataset.service+'] '+need,source:'website',budget:null})});
+      var r=await fetch(apiUrl('/api/leads/public'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name,email:email,company:company||null,country:null,language:(navigator.language||'ar').split('-')[0],need:'['+m.dataset.service+'] '+need,source:'website',budget:null})});
       var data=await r.json().catch(function(){return {}});
       if(!r.ok) throw Error(data.detail||('HTTP '+r.status));
       st.textContent='تم تسجيل الطلب بنجاح. فريق Company AI سيكمل المتابعة.';m.querySelector('#caiSend').disabled=true;
     }catch(e){st.textContent='تعذر الإرسال الآن: '+(e.message||'خطأ غير معروف')+' — يمكنك إعادة المحاولة.'}
   }
   function openAI(){
-    var m=modal();m.dataset.service='ai';m.classList.add('open');m.querySelector('#caiTitle').textContent='تحدث مع Company AI';m.querySelector('#caiDesc').textContent='اكتب ما تريد بناءه أو تطويره، وسنحوّل طلبك إلى مسار عمل واضح.';m.querySelector('#caiBody').innerHTML='<textarea id="caiNeed" placeholder="مثلاً: أريد متجر إلكتروني مع CRM ومساعد AI…"></textarea>';m.querySelector('#caiStatus').textContent='';m.querySelector('#caiSend').onclick=async function(){var q=m.querySelector('#caiNeed').value.trim();if(q.length<2){m.querySelector('#caiStatus').textContent='اكتب طلبك أولاً.';return}m.querySelector('#caiStatus').textContent='جاري إرسال الطلب إلى العقل المركزي…';try{var r=await fetch('/api/central-ai/public-intake',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:q,language:(navigator.language||'ar').split('-')[0],channel:'website'})});var d=await r.json().catch(function(){return {}});if(!r.ok)throw Error(d.detail||('HTTP '+r.status));m.querySelector('#caiStatus').textContent=d.message||d.reply||'تم استلام الطلب من Company AI.'}catch(e){m.querySelector('#caiStatus').textContent='تم فتح المسار، لكن الرد الآلي غير متاح حالياً. سجّل طلبك عبر نموذج الخدمة.'}};
+    var m=modal();m.dataset.service='ai';m.classList.add('open');m.querySelector('#caiTitle').textContent='تحدث مع Company AI';m.querySelector('#caiDesc').textContent='اكتب ما تريد بناءه أو تطويره، وسنحوّل طلبك إلى مسار عمل واضح.';m.querySelector('#caiBody').innerHTML='<textarea id="caiNeed" placeholder="مثلاً: أريد متجر إلكتروني مع CRM ومساعد AI…"></textarea>';m.querySelector('#caiStatus').textContent='';m.querySelector('#caiSend').onclick=async function(){var q=m.querySelector('#caiNeed').value.trim();if(q.length<2){m.querySelector('#caiStatus').textContent='اكتب طلبك أولاً.';return}m.querySelector('#caiStatus').textContent='جاري إرسال الطلب إلى العقل المركزي…';try{var r=await fetch(apiUrl('/api/central-ai/public-intake'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:q,language:(navigator.language||'ar').split('-')[0],channel:'website'})});var d=await r.json().catch(function(){return {}});if(!r.ok)throw Error(d.detail||('HTTP '+r.status));m.querySelector('#caiStatus').textContent=d.message||d.reply||'تم استلام الطلب من Company AI.'}catch(e){m.querySelector('#caiStatus').textContent='تم فتح المسار، لكن الرد الآلي غير متاح حالياً. سجّل طلبك عبر نموذج الخدمة.'}};
   }
   function isVoice(t){return /صوت|voice|talk|speak|live|ميكروفون|محادثة صوت/.test(String(t||'').toLowerCase())}
   function wire(){
