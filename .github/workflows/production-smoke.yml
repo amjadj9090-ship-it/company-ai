@@ -1,0 +1,33 @@
+name: Production Smoke Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-smoke.yml'
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check production health endpoint
+        run: |
+          set -euo pipefail
+          url="https://company-ai-0mya.onrender.com/healthz"
+          echo "Checking $url"
+          body="$(curl --fail --silent --show-error --max-time 60 "$url")"
+          echo "$body"
+          python - <<'PY' "$body"
+          import json, sys
+          data = json.loads(sys.argv[1])
+          assert data.get("status") == "ok", data
+          print("Production health check: OK")
+          PY
+
+      - name: Check production homepage
+        run: |
+          set -euo pipefail
+          status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 60 https://company-ai-0mya.onrender.com/)"
+          test "$status" = "200"
+          echo "Production homepage HTTP status: $status"
