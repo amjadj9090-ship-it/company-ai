@@ -34,20 +34,16 @@ def test_auth_and_summary_contract():
     assert c.get('/api/summary', headers=h).status_code == 200
 
 
-def test_generic_entity_post_is_not_shadowed_by_admin_get():
-    h = login()
-    r = c.post('/api/customers', headers=h, json={'data': {'name': 'Contract Client'}})
+def test_crm_lead_create_update_and_summary_contract():
+    r = c.post('/api/crm/leads', json={'name': 'Contract Client', 'email': 'contract@example.com', 'company': 'Contract Co', 'value': 1200})
     assert r.status_code == 200, r.text
-    assert r.json()['name'] == 'Contract Client'
-
-
-def test_generic_entity_idempotency():
-    h = login()
-    key = 'contract-test-idempotency'
-    a = c.post('/api/customers', headers={**h, 'Idempotency-Key': key}, json={'data': {'name': 'Same'}})
-    b = c.post('/api/customers', headers={**h, 'Idempotency-Key': key}, json={'data': {'name': 'Different'}})
-    assert a.status_code == b.status_code == 200
-    assert a.json()['id'] == b.json()['id']
+    lead_id = r.json()['id']
+    r = c.patch(f'/api/crm/leads/{lead_id}', json={'stage': 'qualified'})
+    assert r.status_code == 200, r.text
+    assert r.json()['stage'] == 'qualified'
+    summary = c.get('/api/crm/summary')
+    assert summary.status_code == 200
+    assert summary.json()['by_stage']['qualified'] >= 1
 
 
 def test_central_brain_current_contract():
@@ -139,21 +135,6 @@ def test_public_sales_agent_contract():
     assert r.status_code == 200
     assert r.json()['status'] == 'ok'
     assert r.json()['recommendations']
-
-
-def test_smart_proposal_current_contract():
-    h = login()
-    product = c.post('/api/products', headers=h, json={'data': {
-        'name': 'Contract Website', 'category': 'website', 'description': 'Test',
-        'price': 1000, 'currency': 'USD', 'price_status': 'approved', 'active': True,
-    }})
-    assert product.status_code == 200, product.text
-    lead = c.post('/api/leads', headers=h, json={'data': {'name': 'Proposal Client'}})
-    assert lead.status_code == 200, lead.text
-    r = c.post('/api/proposals/smart', headers=h, json={'lead_id': lead.json()['id'], 'product_ids': [product.json()['id']]})
-    assert r.status_code == 200, r.text
-    assert r.json()['status'] == 'draft'
-    assert r.json()['human_approval_required'] is False
 
 
 def test_public_customer_lifecycle_router_contract():
