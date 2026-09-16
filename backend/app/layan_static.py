@@ -19,7 +19,7 @@ _SERVICE_CARD_PATCH = r'''
   'use strict';
   if(window.__COMPANY_AI_SERVICE_CARDS__) return;
   window.__COMPANY_AI_SERVICE_CARDS__=true;
-  function cardText(el){return ((el.innerText||el.textContent||'')+' '+(el.getAttribute('aria-label')||'')).trim()}
+  function esc(v){return String(v||'').replace(/[&<>\"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\\':'\\\\','"':'&quot;'}[c]||c})}
   function service(text){
     var t=String(text||'').toLowerCase();
     if(/موقع|website|web design|تصميم مواقع/.test(t)) return ['web','تصميم مواقع','موقع شركة، متجر، صفحة هبوط أو منصة ويب كاملة.'];
@@ -32,13 +32,28 @@ _SERVICE_CARD_PATCH = r'''
     if(/نمو|growth|business development|تطوير أعمال/.test(t)) return ['growth','النمو وتطوير الأعمال','تحليل السوق، العملاء، التسعير وخطة النمو.'];
     return null;
   }
+  function ensureStyle(){
+    if(document.getElementById('caiCardStyle')) return;
+    var s=document.createElement('style');s.id='caiCardStyle';s.textContent='#caiCardModal{position:fixed;inset:0;z-index:2147483647;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(2,8,18,.82);font-family:Arial,Tahoma,sans-serif}#caiCardModal.open{display:flex}#caiCardModal .box{width:min(650px,100%);max-height:92dvh;overflow:auto;background:#f8fbff;color:#10213a;border-radius:22px;padding:20px;box-shadow:0 30px 100px rgba(0,0,0,.5)}#caiCardModal h2{margin:0 0 6px}#caiCardModal p{color:#60738c;line-height:1.7}#caiCardModal input,#caiCardModal textarea{width:100%;box-sizing:border-box;border:1px solid #d7e3f3;border-radius:11px;padding:12px;margin:6px 0;font:inherit}#caiCardModal textarea{min-height:120px}#caiCardModal .actions{display:flex;gap:8px;margin-top:10px}#caiCardModal button{border:0;border-radius:11px;padding:12px 15px;font-weight:800;cursor:pointer}.caiPrimary{background:linear-gradient(135deg,#2258e6,#7657ff);color:#fff;flex:1}.caiSecondary{background:#eaf1f8;color:#27415f}.caiStatus{margin-top:10px;font-weight:700;color:#31506f}';document.head.appendChild(s)
+  }
+  function open(s){
+    ensureStyle();
+    var m=document.getElementById('caiCardModal');
+    if(!m){m=document.createElement('div');m.id='caiCardModal';m.innerHTML='<div class="box"><button class="caiSecondary" id="caiCardClose" type="button">×</button><h2 id="caiCardTitle"></h2><p id="caiCardDesc"></p><input id="caiCardName" placeholder="الاسم" autocomplete="name"><input id="caiCardEmail" placeholder="البريد الإلكتروني" type="email" autocomplete="email"><input id="caiCardCompany" placeholder="اسم الشركة (اختياري)"><textarea id="caiCardNeed" placeholder="اشرح المطلوب بالتفصيل"></textarea><div class="actions"><button class="caiPrimary" id="caiCardSend" type="button">إرسال الطلب</button><button class="caiSecondary" id="caiCardCancel" type="button">إغلاق</button></div><div class="caiStatus" id="caiCardStatus"></div></div>';document.body.appendChild(m);m.querySelector('#caiCardClose').onclick=close;m.querySelector('#caiCardCancel').onclick=close;m.addEventListener('click',function(e){if(e.target===m)close()})}
+    m.dataset.service=s[0];m.querySelector('#caiCardTitle').textContent=s[1];m.querySelector('#caiCardDesc').textContent=s[2]+' اكتب طلبك وسيتحول مباشرة إلى فرصة داخل Company AI.';m.querySelector('#caiCardStatus').textContent='';m.querySelector('#caiCardSend').disabled=false;m.querySelector('#caiCardSend').onclick=send;m.classList.add('open');setTimeout(function(){m.querySelector('#caiCardName').focus()},30)
+  }
+  function close(){var m=document.getElementById('caiCardModal');if(m)m.classList.remove('open')}
+  async function send(){
+    var m=document.getElementById('caiCardModal'),name=m.querySelector('#caiCardName').value.trim(),email=m.querySelector('#caiCardEmail').value.trim(),company=m.querySelector('#caiCardCompany').value.trim(),need=m.querySelector('#caiCardNeed').value.trim(),st=m.querySelector('#caiCardStatus');
+    if(!name||!email||need.length<3){st.textContent='يرجى تعبئة الاسم والبريد ووصف المطلوب.';return}
+    st.textContent='جاري إرسال الطلب…';
+    try{var r=await fetch('/api/leads/public',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name,email:email,company:company||null,country:null,language:(navigator.language||'ar').split('-')[0],need:'['+m.dataset.service+'] '+need,source:'website',budget:null})});var d=await r.json().catch(function(){return{}});if(!r.ok)throw Error(d.detail||('HTTP '+r.status));st.textContent='تم تسجيل الطلب بنجاح. فريق Company AI سيكمل المتابعة.';m.querySelector('#caiCardSend').disabled=true}catch(e){st.textContent='تعذر الإرسال الآن: '+(e.message||'خطأ غير معروف')}
+  }
   document.addEventListener('click',function(e){
     var el=e.target&&e.target.closest?e.target.closest('#services .card'):null;
-    if(!el) return;
-    var s=service(cardText(el));
-    if(s && window.CompanyAIInteractive && window.CompanyAIInteractive.openService){
-      e.preventDefault(); e.stopPropagation(); window.CompanyAIInteractive.openService(s);
-    }
+    if(!el)return;
+    var s=service((el.innerText||el.textContent||'').trim());
+    if(s){e.preventDefault();e.stopImmediatePropagation();open(s)}
   },true);
 })();
 '''
@@ -56,9 +71,9 @@ def layan_realtime_hotfix():
             + "\n"
             + _SERVICE_CARD_PATCH
         )
-        return Response(content=content, media_type="application/javascript")
+        return Response(content=content, media_type="application/javascript", headers={"Cache-Control":"no-store, no-cache, must-revalidate, max-age=0","Pragma":"no-cache"})
     except Exception:
-        return FileResponse(_HOTFIX, media_type="application/javascript")
+        return FileResponse(_HOTFIX, media_type="application/javascript", headers={"Cache-Control":"no-store, no-cache, must-revalidate, max-age=0","Pragma":"no-cache"})
 
 
 @router.get("/assets/layan-office.webp", include_in_schema=False)
