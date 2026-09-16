@@ -13,8 +13,6 @@ except Exception:
 
 from fastapi import FastAPI
 
-# Feature routers are installed while the app is constructed, before main.py
-# declares generic /api/{kind}/{entity_id} routes.
 _ORIGINAL_FASTAPI_INIT = FastAPI.__init__
 
 
@@ -31,7 +29,9 @@ def _company_ai_init(self, *args, **kwargs):
     from .payments import router as payments_router
     from .public_lifecycle import router as public_lifecycle_router
     from .layan_static import router as layan_static_router
+    from .ui_api import router as ui_api_router
 
+    # Specific feature routes are installed before main.py generic entity routes.
     self.include_router(admin_compat_router)
     self.include_router(brain_router)
     self.include_router(employee_router)
@@ -42,15 +42,10 @@ def _company_ai_init(self, *args, **kwargs):
     self.include_router(payments_router)
     self.include_router(public_lifecycle_router)
     self.include_router(layan_static_router)
+    self.include_router(ui_api_router)
 
-    # The homepage already loads the Layan realtime hotfix from frontend/index.html.
-    # Keep a single script instance so click interception and global handlers are
-    # not registered twice on the same page.
-
-    # FastAPI's decorators ultimately register through the router. Intercept
-    # the two generic entity routes so a literal entity id must be numeric;
-    # otherwise a request such as POST /api/commercial/quotes can be consumed
-    # by GET /api/{kind}/{entity_id} and incorrectly return 405.
+    # Force generic entity ids to be numeric so literal feature routes cannot
+    # be shadowed by /api/{kind}/{entity_id}.
     original_add_api_route = self.router.add_api_route
 
     def add_api_route_ordered(path, *route_args, **route_kwargs):
