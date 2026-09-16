@@ -1,7 +1,5 @@
 from pathlib import Path
 
-# Temporary runtime guard: repair a malformed Base declaration introduced in
-# the previous admin-password hotfix before Python imports backend.app.main.
 _MAIN_FILE = Path(__file__).with_name('main.py')
 try:
     _source = _MAIN_FILE.read_text(encoding='utf-8')
@@ -12,13 +10,10 @@ except Exception:
     pass
 
 from fastapi import FastAPI
-
 _ORIGINAL_FASTAPI_INIT = FastAPI.__init__
-
 
 def _company_ai_init(self, *args, **kwargs):
     _ORIGINAL_FASTAPI_INIT(self, *args, **kwargs)
-
     from .admin_compat import router as admin_compat_router
     from .central_brain import router as brain_router
     from .ai_employees import router as employee_router
@@ -31,12 +26,9 @@ def _company_ai_init(self, *args, **kwargs):
     from .layan_static import router as layan_static_router
     from .ui_api import router as ui_api_router
     from .live_ui import router as live_ui_router
+    from .legacy_api import router as legacy_api_router
 
-    # The live UI router must be first so the public homepage served by the
-    # production app cannot be shadowed by main.py's legacy FileResponse route.
     self.include_router(live_ui_router)
-
-    # Specific feature routes are installed before main.py generic entity routes.
     self.include_router(admin_compat_router)
     self.include_router(brain_router)
     self.include_router(employee_router)
@@ -48,17 +40,13 @@ def _company_ai_init(self, *args, **kwargs):
     self.include_router(public_lifecycle_router)
     self.include_router(layan_static_router)
     self.include_router(ui_api_router)
+    self.include_router(legacy_api_router)
 
-    # Force generic entity ids to be numeric so literal feature routes cannot
-    # be shadowed by /api/{kind}/{entity_id}.
     original_add_api_route = self.router.add_api_route
-
     def add_api_route_ordered(path, *route_args, **route_kwargs):
         if path in {'/api/{kind}/{entity_id}', '/api/{kind}/{entity_id}/'}:
             path = '/api/{kind}/{entity_id:int}'
         return original_add_api_route(path, *route_args, **route_kwargs)
-
     self.router.add_api_route = add_api_route_ordered
-
 
 FastAPI.__init__ = _company_ai_init
