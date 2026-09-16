@@ -43,6 +43,19 @@ def _company_ai_init(self, *args, **kwargs):
     self.include_router(public_lifecycle_router)
     self.include_router(layan_static_router)
 
+    # Ensure the public homepage loads the Layan realtime hotfix. The homepage
+    # is registered later by main.py, so this route intentionally comes first.
+    from fastapi.responses import HTMLResponse
+    _frontend = Path(__file__).resolve().parents[2] / 'frontend'
+    def _company_ai_home():
+        html = (_frontend / 'index.html').read_text(encoding='utf-8')
+        marker = '</head>'
+        script = '<script src="/layan-realtime-hotfix.js?v=17" defer></script>'
+        if script not in html:
+            html = html.replace(marker, script + marker, 1)
+        return HTMLResponse(content=html, media_type='text/html')
+    self.add_api_route('/', _company_ai_home, methods=['GET'], include_in_schema=False)
+
     # FastAPI's decorators ultimately register through the router. Intercept
     # the two generic entity routes so a literal entity id must be numeric;
     # otherwise a request such as POST /api/commercial/quotes can be consumed
