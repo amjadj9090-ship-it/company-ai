@@ -1,7 +1,7 @@
 from pathlib import Path
 
 # Temporary runtime guard: repair a malformed Base declaration introduced in
-# the previous admin-password hotfix before Python imports backend.app.main.
+the previous admin-password hotfix before Python imports backend.app.main.
 _MAIN_FILE = Path(__file__).with_name('main.py')
 try:
     _source = _MAIN_FILE.read_text(encoding='utf-8')
@@ -43,6 +43,7 @@ def _company_ai_init(self, *args, **kwargs):
     from .crm_sales_bridge import router as crm_sales_router
     from .commercial_finance import router as commercial_finance_router
     from .dashboard_static import router as dashboard_static_router
+    from .orders import router as orders_router
     from .payments import router as payments_router
     from .public_lifecycle import router as public_lifecycle_router
     from .layan_static import router as layan_static_router
@@ -57,6 +58,7 @@ def _company_ai_init(self, *args, **kwargs):
     self.include_router(crm_sales_router)
     self.include_router(commercial_finance_router)
     self.include_router(dashboard_static_router)
+    self.include_router(orders_router)
     self.include_router(payments_router)
     self.include_router(public_lifecycle_router)
     self.include_router(layan_static_router)
