@@ -13,10 +13,9 @@ try:
 except Exception:
     pass
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from fastapi import HTTPException
 
 _LOG = logging.getLogger('company_ai')
 _ORIGINAL_FASTAPI_INIT = FastAPI.__init__
@@ -62,6 +61,7 @@ def _company_ai_init(self, *args, **kwargs):
     from .public_lifecycle import router as public_lifecycle_router
     from .layan_static import router as layan_static_router
     from .ui_api import router as ui_api_router
+    from .live_ui import router as live_ui_router
 
     self.include_router(live_ui_router)
     self.include_router(admin_compat_router)
