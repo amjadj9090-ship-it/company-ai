@@ -1,7 +1,7 @@
 from pathlib import Path
 
 # Temporary runtime guard: repair a malformed Base declaration introduced in
-the previous admin-password hotfix before Python imports backend.app.main.
+# the previous admin-password hotfix before Python imports backend.app.main.
 _MAIN_FILE = Path(__file__).with_name('main.py')
 try:
     _source = _MAIN_FILE.read_text(encoding='utf-8')
