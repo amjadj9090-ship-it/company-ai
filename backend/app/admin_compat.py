@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -22,36 +22,21 @@ def _admin_user():
     return current_user
 
 
-@router.get("/api/{kind}")
+# Keep admin-specific listing separate from the public CRUD contract. A generic
+# GET /api/{kind} here would shadow POST /api/{kind} and cause 405 errors.
+@router.get("/api/admin/{kind}")
 def admin_list(kind: str, u=Depends(_admin_user)):
     Entity, _, _, _ = _deps()
     allowed_kinds = {
-        "leads": "crm_lead",
-        "customers": "customer",
-        "proposals": "proposal",
-        "orders": "order",
-        "invoices": "invoice",
-        "projects": "project",
-        "tasks": "task",
-        "products": "product",
-        "contracts": "contract",
-        "tickets": "ticket",
-        "suppliers": "supplier",
-        "campaigns": "campaign",
-        "partners": "partner",
-        "content": "content",
-        "marketplace": "marketplace",
-        "feasibility_studies": "feasibility_study",
-        "website_assessments": "website_assessment",
-        "security_assessments": "security_assessment",
-        "security_incidents": "security_incident",
-        "monitoring_incidents": "monitoring_incident",
-        "agent_builds": "agent_build",
-        "voice_profiles": "voice_profile",
-        "avatar_profiles": "avatar_profile",
-        "voice_sessions": "voice_session",
-        "avatar_jobs": "avatar_job",
-        "speech_models": "speech_model",
+        "leads": "crm_lead", "customers": "customer", "proposals": "proposal", "orders": "order",
+        "invoices": "invoice", "projects": "project", "tasks": "task", "products": "product",
+        "contracts": "contract", "tickets": "ticket", "suppliers": "supplier", "campaigns": "campaign",
+        "partners": "partner", "content": "content", "marketplace": "marketplace",
+        "feasibility_studies": "feasibility_study", "website_assessments": "website_assessment",
+        "security_assessments": "security_assessment", "security_incidents": "security_incident",
+        "monitoring_incidents": "monitoring_incident", "agent_builds": "agent_build",
+        "voice_profiles": "voice_profile", "avatar_profiles": "avatar_profile", "voice_sessions": "voice_session",
+        "avatar_jobs": "avatar_job", "speech_models": "speech_model",
     }
     entity_kind = allowed_kinds.get(kind, kind)
     with _db() as s:
