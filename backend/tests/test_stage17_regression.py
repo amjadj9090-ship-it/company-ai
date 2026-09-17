@@ -49,9 +49,14 @@ def test_admin_security_contract_remains_enforced():
     assert "user.active" in admin
 
 
-def test_error_contract_and_request_ids_remain_present():
+def test_error_and_security_contract_remains_present():
     main = read_backend("main.py")
-    assert "request_id" in main
+    assert "class SecurityMiddleware" in main
+    assert "Request too large" in main
+    assert "Rate limit exceeded" in main
+    assert "X-Content-Type-Options" in main
+    assert "X-Frame-Options" in main
+    assert "Content-Security-Policy" in main
 
 
 def test_public_pages_remain_mobile_rtl_ready():
