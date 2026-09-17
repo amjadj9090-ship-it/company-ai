@@ -43,10 +43,11 @@ def test_realtime_contract_remains_provider_centralized():
 
 def test_admin_security_contract_remains_enforced():
     admin = read_backend("admin_compat.py")
-    assert "Authorization" in admin
-    assert 'startswith("bearer ")' in admin
+    assert "def _admin_user(" in admin
+    assert "Header(None)" in admin
+    assert 'authorization.lower().startswith("bearer ")' in admin
     assert 'user.role not in {"admin", "owner"}' in admin
-    assert "user.active" in admin
+    assert "not user.active" in admin
 
 
 def test_error_and_security_contract_remains_present():
