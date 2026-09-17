@@ -30,7 +30,8 @@ def now():
 
 def add(s, kind, data):
     main = _main()
-    e = main.Entity(kind=kind, data=data)
+    timestamp = datetime.now(timezone.utc)
+    e = main.Entity(kind=kind, data=data, created_at=timestamp, updated_at=timestamp)
     s.add(e)
     s.flush()
     return e
