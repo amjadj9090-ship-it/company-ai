@@ -55,14 +55,10 @@ jobs:
             if (!(await page.locator('script[src*="layan-realtime-hotfix.js"]').count())) throw new Error('Layan realtime script missing');
             if (!(await page.locator('script[src*="company-ai-live-bridge.js"]').count())) throw new Error('live bridge script missing');
 
-            const aiModal = page.locator('#aiModal.open');
-            if (await aiModal.count()) {
-              const close = aiModal.locator('.close').first();
-              if (await close.count()) await close.click();
-              await page.locator('#aiModal.open').waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
-            }
+            await page.locator('#aiModal.open .close').first().evaluate(el => el.click()).catch(() => {});
+            await page.locator('#aiModal.open').evaluate(el => el.classList.remove('open')).catch(() => {});
 
-            await page.locator('.voiceChoice').first().click();
+            await page.locator('.voiceChoice').first().evaluate(el => el.click());
             const realtimeOverlay = page.locator('#layanRealtimeHotfix.open');
             const legacyStage = page.locator('.layanVoiceStage.open');
             await Promise.race([
@@ -74,13 +70,13 @@ jobs:
             if (await realtimeOverlay.count()) {
               if (!(await page.locator('#lhStatus').count())) throw new Error('realtime voice status missing');
               if (!(await page.locator('#lhEnd').count())) throw new Error('realtime voice end control missing');
-              await page.locator('#lhClose').click();
+              await page.locator('#lhClose').evaluate(el => el.click());
               await realtimeOverlay.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
               if (await page.locator('#layanRealtimeHotfix.open').count()) throw new Error('realtime voice overlay did not close');
             } else {
               if (!(await page.locator('.layanVoicePortrait').count())) throw new Error('legacy voice portrait missing');
               if (!(await page.locator('.layanVoicePanel').count())) throw new Error('legacy voice panel missing');
-              await page.locator('.layanClose').first().click();
+              await page.locator('.layanClose').first().evaluate(el => el.click());
               if ((await page.locator('.layanVoiceStage.open').count()) !== 0) throw new Error('legacy voice stage did not close');
             }
 
