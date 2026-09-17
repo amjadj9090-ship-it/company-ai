@@ -18,9 +18,12 @@ from sqlalchemy.types import JSON
 VERSION='8.5.1-security-test'
 DATABASE_URL=os.getenv('DATABASE_URL','sqlite:///./company_ai.db')
 JWT_SECRET=os.getenv('JWT_SECRET',''); JWT_ALG='HS256'; ACCESS_MINUTES=int(os.getenv('ACCESS_TOKEN_MINUTES','30'))
+ENVIRONMENT=os.getenv('ENVIRONMENT','development').strip().lower()
 COMPANY_OWNER_EMAIL=os.getenv('COMPANY_OWNER_EMAIL','owner@example.com').strip().lower()
-if os.getenv('ENVIRONMENT','development')=='production' and len(JWT_SECRET)<32: raise RuntimeError('JWT_SECRET must be at least 32 characters in production')
-if os.getenv('ENVIRONMENT','development')=='production' and os.getenv('PASSWORD_PEPPER','') in ('','dev-pepper'): raise RuntimeError('PASSWORD_PEPPER must be configured in production')
+if ENVIRONMENT=='production' and len(JWT_SECRET)<32: raise RuntimeError('JWT_SECRET must be at least 32 characters in production')
+if ENVIRONMENT=='production' and os.getenv('PASSWORD_PEPPER','') in ('','dev-pepper'): raise RuntimeError('PASSWORD_PEPPER must be configured in production')
+if ENVIRONMENT=='production' and (os.getenv('DEMO_ADMIN_PASSWORD','') in ('','change-me') or len(os.getenv('DEMO_ADMIN_PASSWORD','')) < 16): raise RuntimeError('DEMO_ADMIN_PASSWORD must be configured with at least 16 characters in production')
+if ENVIRONMENT=='production' and COMPANY_OWNER_EMAIL=='owner@example.com': raise RuntimeError('COMPANY_OWNER_EMAIL must be configured in production')
 engine=create_engine(DATABASE_URL,connect_args={'check_same_thread':False} if DATABASE_URL.startswith('sqlite') else {},pool_pre_ping=True)
 class Base(DeclarativeBase: pass
 class Entity(Base):
@@ -35,7 +38,8 @@ class Idempotency(Base):
     __tablename__='idempotency'; key:Mapped[str]=mapped_column(String(300),primary_key=True); response:Mapped[dict]=mapped_column(JSON); created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True))
 Base.metadata.create_all(engine)
 app=FastAPI(title='Company AI Global Business OS',version=VERSION,docs_url=None if os.getenv('ENVIRONMENT')=='production' else '/docs',redoc_url=None if os.getenv('ENVIRONMENT')=='production' else '/redoc',openapi_url=None if os.getenv('ENVIRONMENT')=='production' else '/openapi.json')
-origins=[x.strip() for x in os.getenv('CORS_ORIGINS','http://localhost:8000,http://localhost:5173').split(',') if x.strip()]
+default_origins='' if ENVIRONMENT=='production' else 'http://localhost:8000,http://localhost:5173'
+origins=[x.strip() for x in os.getenv('CORS_ORIGINS',default_origins).split(',') if x.strip()]
 app.add_middleware(CORSMiddleware,allow_origins=origins,allow_methods=['GET','POST','PUT','PATCH','DELETE'],allow_headers=['Authorization','Content-Type','Idempotency-Key'],max_age=600)
 class SecurityMiddleware(BaseHTTPMiddleware):
     def __init__(self, app): super().__init__(app); self.hits={}; self.window=60; self.limit=int(os.getenv('PUBLIC_RATE_LIMIT','30')); self.max_body=int(os.getenv('MAX_REQUEST_BYTES','1048576'))
@@ -74,7 +78,7 @@ def add(s,kind,data):
 def audit(s,u,action,entity,eid,details=None): s.add(Audit(actor=u.email,action=action,entity=entity,entity_id=eid,details=details or {},created_at=now()))
 def seed(s):
     owner_email=COMPANY_OWNER_EMAIL
-    owner_password=os.getenv('DEMO_ADMIN_PASSWORD','change-me')
+    owner_password=os.getenv('DEMO_ADMIN_PASSWORD','')
     owner=s.scalar(select(UserRow).where(UserRow.email==owner_email))
     if not owner:
         s.add(UserRow(name='Owner',email=owner_email,password_hash=pwd_hash(owner_password),role='admin',active=True))
