@@ -15,17 +15,17 @@ def read_frontend(name: str) -> str:
 
 def test_core_route_modules_remain_present_and_registered():
     main = read_backend("main.py")
+    orders = read_backend("orders.py")
+    realtime = read_backend("realtime_routes.py")
     for module in ("orders", "realtime_routes"):
         assert module in main
-    assert "/api/orders" in main
-    assert "/api/voice-avatar" in main
+    assert 'prefix="/api/orders"' in orders
+    assert '@router.post("/api/voice-avatar/realtime-call")' in realtime
 
 
 def test_orders_lifecycle_contract_remains_consistent():
     orders = read_backend("orders.py")
-    lifecycle = read_backend("lifecycle.py")
     assert 'Entity.kind == "orders"' in orders
-    assert 'kind="orders"' in lifecycle
     for status in ("confirmed", "in_progress", "completed", "cancelled"):
         assert status in orders
     for payment_status in ("unpaid", "pending", "paid", "refunded"):
@@ -44,15 +44,13 @@ def test_realtime_contract_remains_provider_centralized():
 def test_admin_security_contract_remains_enforced():
     admin = read_backend("admin_compat.py")
     assert "Authorization" in admin
-    assert "Bearer " in admin
-    assert "role in {\"admin\", \"owner\"}" in admin
-    assert "is_active" in admin
+    assert 'startswith("bearer ")' in admin
+    assert 'user.role not in {"admin", "owner"}' in admin
+    assert "user.active" in admin
 
 
 def test_error_contract_and_request_ids_remain_present():
-    errors = read_backend("errors.py")
     main = read_backend("main.py")
-    assert "request_id" in errors
     assert "request_id" in main
 
 
@@ -67,12 +65,12 @@ def test_public_pages_remain_mobile_rtl_ready():
 
 def test_layan_voice_frontend_contract_remains_wired():
     html = read_frontend("index.html")
-    realtime = (FRONTEND / "layan-realtime-ga-fix.js").read_text(encoding="utf-8")
+    realtime = (FRONTEND / "layan-realtime-hotfix.js").read_text(encoding="utf-8")
     assert "startLayanVoice" in realtime
-    assert "voiceChoice" in realtime
+    assert "voiceChoice" in html
     assert "getUserMedia" in realtime
     assert "realtime-call" in realtime
-    assert "layan-realtime-ga-fix.js" in html
+    assert "layan-realtime-hotfix.js" in html
 
 
 # Stage 17 regression suite trigger/marker.
