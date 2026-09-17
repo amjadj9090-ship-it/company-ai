@@ -57,6 +57,13 @@ jobs:
             if (!(await page.locator('script[src*="layan-realtime-hotfix.js"]').count())) throw new Error('Layan realtime script missing');
             if (!(await page.locator('script[src*="company-ai-live-bridge.js"]').count())) throw new Error('live bridge script missing');
 
+            const aiModal = page.locator('#aiModal.open');
+            if (await aiModal.count()) {
+              const close = aiModal.locator('.close').first();
+              if (await close.count()) await close.click();
+              await page.locator('#aiModal.open').waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
+            }
+
             await page.locator('.voiceChoice').first().click();
             await page.locator('.layanVoiceStage').waitFor({ state: 'visible', timeout: 5000 });
             if (!(await page.locator('.layanVoiceStage.open').count())) throw new Error('voice stage did not open');
