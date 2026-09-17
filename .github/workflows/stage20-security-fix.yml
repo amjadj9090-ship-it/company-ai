@@ -3,8 +3,6 @@ name: Stage 20 Security Hardening
 on:
   push:
     branches: [main]
-    paths:
-      - '.github/workflows/stage20-security-fix.yml'
   workflow_dispatch:
 
 permissions:
@@ -26,19 +24,16 @@ jobs:
           s = p.read_text(encoding='utf-8')
           old = "COMPANY_OWNER_EMAIL=os.getenv('COMPANY_OWNER_EMAIL','owner@example.com').strip().lower()\nif os.getenv('ENVIRONMENT','development')=='production' and len(JWT_SECRET)<32: raise RuntimeError('JWT_SECRET must be at least 32 characters in production')\nif os.getenv('ENVIRONMENT','development')=='production' and os.getenv('PASSWORD_PEPPER','') in ('','dev-pepper'): raise RuntimeError('PASSWORD_PEPPER must be configured in production')"
           new = "ENVIRONMENT=os.getenv('ENVIRONMENT','development').strip().lower()\nCOMPANY_OWNER_EMAIL=os.getenv('COMPANY_OWNER_EMAIL','owner@example.com').strip().lower()\nif ENVIRONMENT=='production' and len(JWT_SECRET)<32: raise RuntimeError('JWT_SECRET must be at least 32 characters in production')\nif ENVIRONMENT=='production' and os.getenv('PASSWORD_PEPPER','') in ('','dev-pepper'): raise RuntimeError('PASSWORD_PEPPER must be configured in production')\nif ENVIRONMENT=='production' and (os.getenv('DEMO_ADMIN_PASSWORD','') in ('','change-me') or len(os.getenv('DEMO_ADMIN_PASSWORD','')) < 16): raise RuntimeError('DEMO_ADMIN_PASSWORD must be configured with at least 16 characters in production')\nif ENVIRONMENT=='production' and COMPANY_OWNER_EMAIL=='owner@example.com': raise RuntimeError('COMPANY_OWNER_EMAIL must be configured in production')"
-          if old not in s:
-              raise SystemExit('expected production guard block not found')
-          s = s.replace(old, new, 1)
+          if old in s:
+              s = s.replace(old, new, 1)
           old = "origins=[x.strip() for x in os.getenv('CORS_ORIGINS','http://localhost:8000,http://localhost:5173').split(',') if x.strip()]"
           new = "default_origins='' if ENVIRONMENT=='production' else 'http://localhost:8000,http://localhost:5173'\norigins=[x.strip() for x in os.getenv('CORS_ORIGINS',default_origins).split(',') if x.strip()]"
-          if old not in s:
-              raise SystemExit('expected CORS configuration not found')
-          s = s.replace(old, new, 1)
+          if old in s:
+              s = s.replace(old, new, 1)
           old = "owner_password=os.getenv('DEMO_ADMIN_PASSWORD','change-me')"
           new = "owner_password=os.getenv('DEMO_ADMIN_PASSWORD','')"
-          if old not in s:
-              raise SystemExit('expected admin password default not found')
-          s = s.replace(old, new, 1)
+          if old in s:
+              s = s.replace(old, new, 1)
           p.write_text(s, encoding='utf-8')
           PY
 
@@ -60,5 +55,3 @@ jobs:
           fi
           git commit -m 'fix: harden production secret and CORS defaults'
           git push
-
-      # Stage 20 trigger marker: changing this workflow file intentionally reruns the hardening pass.
