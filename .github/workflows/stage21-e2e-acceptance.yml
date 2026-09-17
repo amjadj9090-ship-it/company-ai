@@ -84,8 +84,8 @@ jobs:
               if ((await page.locator('.layanVoiceStage.open').count()) !== 0) throw new Error('legacy voice stage did not close');
             }
 
-            const csp = await page.evaluate(() => document.querySelector('meta[http-equiv="Content-Security-Policy"]')?.content || '');
-            if (!csp) throw new Error('CSP metadata missing from page');
+            const csp = response.headers()['content-security-policy'] || '';
+            if (!csp) throw new Error('CSP response header missing');
             if (errors.length) throw new Error(`browser console/page errors: ${errors.join(' | ')}`);
 
             console.log('STAGE21_E2E_ACCEPTANCE=PASS');
