@@ -10,24 +10,54 @@ on:
 jobs:
   smoke:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - name: Check production health endpoint
+      - name: Wait for production health
         run: |
           set -euo pipefail
           url="https://company-ai-0mya.onrender.com/healthz"
-          echo "Checking $url"
-          body="$(curl --fail --silent --show-error --max-time 60 "$url")"
+          for i in $(seq 1 30); do
+            body="$(curl --silent --show-error --max-time 30 "$url" || true)"
+            if echo "$body" | grep -q '"status":"ok"'; then
+              echo "Production health check: OK"
+              echo "$body"
+              exit 0
+            fi
+            echo "Waiting for production health (attempt $i/30)"
+            sleep 5
+          done
+          echo "Production health endpoint did not become ready"
+          exit 1
+
+      - name: Check production health contract
+        run: |
+          set -euo pipefail
+          body="$(curl --fail --silent --show-error --max-time 60 'https://company-ai-0mya.onrender.com/healthz')"
           echo "$body"
           python - <<'PY' "$body"
           import json, sys
           data = json.loads(sys.argv[1])
           assert data.get("status") == "ok", data
-          print("Production health check: OK")
+          assert data.get("mode") == "production", data
           PY
 
-      - name: Check production homepage
+      - name: Check production homepage and public assets
         run: |
           set -euo pipefail
-          status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 60 'https://company-ai-0mya.onrender.com/')"
-          test "$status" = "200"
-          echo "Production homepage HTTP status: $status"
+          base='https://company-ai-0mya.onrender.com'
+          curl --fail --silent --show-error --max-time 60 "$base/" -o /tmp/index.html
+          grep -q 'Layan' /tmp/index.html
+          curl --fail --silent --show-error --max-time 60 "$base/layan-realtime-hotfix.js?v=20260916-05" -o /tmp/layan.js
+          test -s /tmp/layan.js
+          curl --fail --silent --show-error --max-time 60 "$base/company-ai-live-bridge.js?v=20260916-05" -o /tmp/bridge.js
+          test -s /tmp/bridge.js
+
+      - name: Check production security headers
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --max-time 60 -D /tmp/headers.txt -o /dev/null 'https://company-ai-0mya.onrender.com/healthz'
+          grep -qi '^x-content-type-options: nosniff' /tmp/headers.txt
+          grep -qi '^x-frame-options: DENY' /tmp/headers.txt
+          grep -qi '^referrer-policy: strict-origin-when-cross-origin' /tmp/headers.txt
+          grep -qi '^content-security-policy:' /tmp/headers.txt
+          grep -qi '^strict-transport-security:' /tmp/headers.txt
