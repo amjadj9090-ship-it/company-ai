@@ -60,3 +60,5 @@ jobs:
           fi
           git commit -m 'fix: harden production secret and CORS defaults'
           git push
+
+      # Stage 20 trigger marker: changing this workflow file intentionally reruns the hardening pass.
