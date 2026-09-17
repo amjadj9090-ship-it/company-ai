@@ -69,16 +69,18 @@ jobs:
           required = {
               'x-content-type-options': 'nosniff',
               'x-frame-options': 'deny',
-              'referrer-policy': 'strict-origin-when-cross-origin',
           }
           for key, expected in required.items():
               actual = headers.get(key, '')
               print(f'{key}: {actual or "MISSING"}')
               assert actual.lower() == expected.lower(), (key, actual)
+          referrer = headers.get('referrer-policy', '')
+          print(f'referrer-policy: {referrer or "MISSING"}')
+          assert referrer.lower() in {'strict-origin-when-cross-origin', 'no-referrer'}, referrer
           csp = headers.get('content-security-policy', '')
           print(f'content-security-policy: {csp or "MISSING"}')
-          if not csp:
-              print('CSP is not exposed by the public edge response; code-level CSP remains covered by the application regression suite.')
+          assert csp, 'Content-Security-Policy is missing from the public production response'
           hsts = headers.get('strict-transport-security', '')
-          print(f'strict-transport-security: {hsts or "not exposed by edge"}')
+          print(f'strict-transport-security: {hsts or "MISSING"}')
+          assert hsts, 'Strict-Transport-Security is missing from the public production response'
           PY
