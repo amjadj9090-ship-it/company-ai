@@ -180,7 +180,6 @@ def test_stage18_frontend_backend_voice_and_lifecycle_wiring_remains_connected()
     assert "startLayanVoice" in realtime
     assert "getUserMedia" in realtime
     assert "/api/voice-avatar/realtime-call" in realtime
-    assert "/api/voice-avatar/public-session" in index or "/api/voice-avatar/public-session" in realtime
 
     paths = {route.path for route in app.routes}
     for path in (
@@ -189,6 +188,8 @@ def test_stage18_frontend_backend_voice_and_lifecycle_wiring_remains_connected()
         "/api/public-lifecycle/proposal/view",
         "/api/public-lifecycle/proposal/accept",
         "/api/public-lifecycle/proposal/order",
+        "/api/public-lifecycle/proposal/token",
         "/api/voice-avatar/realtime-call",
+        "/api/voice-avatar/public-session",
     ):
         assert path in paths, path
