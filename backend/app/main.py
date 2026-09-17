@@ -22,8 +22,6 @@ ENVIRONMENT=os.getenv('ENVIRONMENT','development').strip().lower()
 COMPANY_OWNER_EMAIL=os.getenv('COMPANY_OWNER_EMAIL','owner@example.com').strip().lower()
 if ENVIRONMENT=='production' and len(JWT_SECRET)<32: raise RuntimeError('JWT_SECRET must be at least 32 characters in production')
 if ENVIRONMENT=='production' and os.getenv('PASSWORD_PEPPER','') in ('','dev-pepper'): raise RuntimeError('PASSWORD_PEPPER must be configured in production')
-if ENVIRONMENT=='production' and (os.getenv('DEMO_ADMIN_PASSWORD','') in ('','change-me') or len(os.getenv('DEMO_ADMIN_PASSWORD','')) < 16): raise RuntimeError('DEMO_ADMIN_PASSWORD must be configured with at least 16 characters in production')
-if ENVIRONMENT=='production' and COMPANY_OWNER_EMAIL=='owner@example.com': raise RuntimeError('COMPANY_OWNER_EMAIL must be configured in production')
 engine=create_engine(DATABASE_URL,connect_args={'check_same_thread':False} if DATABASE_URL.startswith('sqlite') else {},pool_pre_ping=True)
 class Base(DeclarativeBase: pass
 class Entity(Base):
@@ -81,6 +79,8 @@ def seed(s):
     owner_password=os.getenv('DEMO_ADMIN_PASSWORD','')
     owner=s.scalar(select(UserRow).where(UserRow.email==owner_email))
     if not owner:
+        if ENVIRONMENT=='production' and (owner_email=='owner@example.com' or len(owner_password)<16 or owner_password=='change-me'):
+            raise RuntimeError('Production owner credentials must be configured before first owner creation')
         s.add(UserRow(name='Owner',email=owner_email,password_hash=pwd_hash(owner_password),role='admin',active=True))
     else:
         owner.name=owner.name or 'Owner'; owner.role='admin'; owner.active=True
