@@ -1,0 +1,80 @@
+name: Stage 21 E2E Acceptance
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Install Playwright
+        run: |
+          npm init -y
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Run production E2E acceptance
+        env:
+          BASE_URL: https://company-ai-0mya.onrender.com
+        run: |
+          node <<'NODE'
+          const { chromium } = require('playwright');
+          const base = process.env.BASE_URL;
+          (async () => {
+            const browser = await chromium.launch({
+              headless: true,
+              args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream']
+            });
+            const page = await browser.newPage({ viewport: { width: 390, height: 844 }, locale: 'ar-SA' });
+            const errors = [];
+            page.on('pageerror', e => errors.push(String(e)));
+            page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+
+            const health = await page.request.get(`${base}/healthz`);
+            if (!health.ok()) throw new Error(`healthz failed: ${health.status()}`);
+            const healthJson = await health.json();
+            if (healthJson.status !== 'ok' || healthJson.mode !== 'production') throw new Error(`unexpected health: ${JSON.stringify(healthJson)}`);
+
+            const response = await page.goto(base, { waitUntil: 'networkidle' });
+            if (!response || !response.ok()) throw new Error(`homepage failed: ${response && response.status()}`);
+            if ((await page.title()) !== 'COMPANY AI — Global Business OS') throw new Error('unexpected page title');
+            if (!(await page.locator('.layanHero').count())) throw new Error('Layan hero missing');
+            if ((await page.locator('.layanChoice').count()) < 2) throw new Error('Layan interaction choices missing');
+            if (!(await page.locator('.voiceChoice').count())) throw new Error('voice choice missing');
+            if (!(await page.locator('.layanVoiceStage').count())) throw new Error('voice stage missing');
+            if (!(await page.locator('.layanStart').count())) throw new Error('voice start control missing');
+            if (!(await page.locator('script[src*="layan-realtime-hotfix.js"]').count())) throw new Error('Layan realtime script missing');
+            if (!(await page.locator('script[src*="company-ai-live-bridge.js"]').count())) throw new Error('live bridge script missing');
+
+            await page.locator('.voiceChoice').first().click();
+            await page.locator('.layanVoiceStage').waitFor({ state: 'visible', timeout: 5000 });
+            if (!(await page.locator('.layanVoiceStage.open').count())) throw new Error('voice stage did not open');
+            if (!(await page.locator('.layanVoicePortrait').count())) throw new Error('voice portrait missing');
+            if (!(await page.locator('.layanVoicePanel').count())) throw new Error('voice panel missing');
+            await page.locator('.layanClose').first().click();
+            if ((await page.locator('.layanVoiceStage.open').count()) !== 0) throw new Error('voice stage did not close');
+
+            const csp = await page.evaluate(() => document.querySelector('meta[http-equiv="Content-Security-Policy"]')?.content || '');
+            if (!csp) throw new Error('CSP metadata missing from page');
+            if (errors.length) throw new Error(`browser console/page errors: ${errors.join(' | ')}`);
+
+            console.log('STAGE21_E2E_ACCEPTANCE=PASS');
+            console.log('healthz=PASS');
+            console.log('homepage=PASS');
+            console.log('layan_ui=PASS');
+            console.log('voice_ui_open_close=PASS');
+            console.log('security_csp=PASS');
+            await browser.close();
+          })().catch(async err => { console.error(err); process.exit(1); });
+          NODE
