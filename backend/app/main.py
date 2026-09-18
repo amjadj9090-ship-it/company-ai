@@ -163,6 +163,37 @@ def _layan_local_reply(message: str, language: str = 'auto') -> str:
         return 'أهلا وسهلا! أنا ليان من Company AI. احكيلي شو بدك تعمل، وأنا بساعدك خطوة بخطوة.'
     return 'فهمت عليك. احكيلي شوي أكثر عن المطلوب والنتيجة اللي بدك توصل إلها، وأنا بوجّهك للخطوة المناسبة.'
 
+def _layan_gemini_reply(message: str, language: str = 'auto', history: list[dict] | None = None) -> str | None:
+    api_key = os.getenv('GEMINI_API_KEY', '').strip()
+    if not api_key:
+        return None
+    contents = []
+    for item in (history or [])[-12:]:
+        role = 'model' if item.get('role') in {'assistant', 'model'} else 'user'
+        text_value = str(item.get('text') or item.get('content') or '').strip()
+        if text_value:
+            contents.append({'role': role, 'parts': [{'text': text_value[:4000]}]})
+    contents.append({'role': 'user', 'parts': [{'text': message.strip()}]})
+    system = ('أنت ليان، موظفة مبيعات ومساعدة أعمال حقيقية ضمن Company AI. '
+              'تحدثي بالعربية الشامية الطبيعية عندما يكون المستخدم عربياً، وبنفس لغة المستخدم عند استخدام لغة أخرى. '
+              'لا تكرري قالباً ثابتاً. افهمي كل رسالة بحسب معناها وسياق المحادثة، وأجيبي مباشرة وباختصار مفيد. '
+              'إذا كان الطلب عن شركة AI أو موقع أو تطبيق أو تسويق أو عميل أو مشروع، قدمي خطوات عملية مرتبطة بالطلب. '
+              'لا تدّعي تنفيذ شيء لم يتم تنفيذه فعلياً. أي تحويل بنكي أو سحب أو التزام مالي أو عقد ملزم يحتاج موافقة صاحب الشركة. '
+              'لا تذكري أنك نموذج ذكاء اصطناعي إلا إذا سُئلت مباشرة.')
+    payload = {'system_instruction': {'parts': [{'text': system}]}, 'contents': contents, 'generationConfig': {'temperature': 0.7, 'maxOutputTokens': 500}}
+    try:
+        import urllib.request
+        req = urllib.request.Request('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent?key=' + api_key,
+            data=json.dumps(payload, ensure_ascii=False).encode('utf-8'), headers={'Content-Type': 'application/json'}, method='POST')
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read().decode('utf-8'))
+        parts = data.get('candidates', [{}])[0].get('content', {}).get('parts', [])
+        reply = ''.join(str(p.get('text', '')) for p in parts).strip()
+        return reply or None
+    except Exception as exc:
+        print(f'Layan Gemini reply unavailable: {type(exc).__name__}: {exc}')
+        return None
+
 @app.get('/api/sales-agent/public/config')
 def public_sales_config(s: Session = Depends(db)):
     row = s.scalar(select(Entity).where(Entity.kind == 'agent_builds', Entity.data['slug'].as_string() == 'public-sales-ai'))
@@ -175,10 +206,10 @@ def public_sales_conversation(agent_id: str, x: SalesConversationIn, s: Session 
     row = s.get(Entity, int(agent_id)) if agent_id.isdigit() else s.scalar(select(Entity).where(Entity.kind == 'agent_builds', Entity.data['slug'].as_string() == agent_id))
     if not row or row.kind != 'agent_builds' or row.data.get('slug') != 'public-sales-ai':
         raise HTTPException(status_code=404, detail='Sales agent not found')
-    reply = _layan_local_reply(x.message, x.language or 'auto')
+    reply = _layan_gemini_reply(x.message, x.language or 'auto', x.history) or _layan_local_reply(x.message, x.language or 'auto')
     s.add(Audit(actor='layan-public', action='conversation_message', entity='agent_builds', entity_id=row.id, details={'message': x.message[:1000], 'language': x.language or 'auto', 'reply': reply[:2000]}, created_at=now()))
     s.commit()
-    return {'reply': reply, 'agent_id': str(row.id), 'language': x.language or 'auto', 'source': 'company-ai-contextual-fallback'}
+    return {'reply': reply, 'agent_id': str(row.id), 'language': x.language or 'auto', 'source': 'gemini-free-tier' if os.getenv('GEMINI_API_KEY', '').strip() else 'company-ai-contextual-fallback'}
 
 ROLE_OK={'admin':{'*'},'sales':{'customers','projects','tasks','quotes','orders','tickets','leads','proposals','products'},'finance':{'invoices','orders','customers'},'trade':{'suppliers','products','orders','quotes'},'marketing':{'customers','projects','tasks','quotes','leads','campaigns','content'},'support':{'customers','tickets'},'growth':{'leads','campaigns','partners','content'},'entrepreneurship':{'feasibility_studies','projects','tasks','customers'},'website_growth':{'website_assessments','projects','tasks','customers'},'cybersecurity':{'security_assessments','security_incidents','projects','tasks'},'monitoring':{'monitoring_incidents','projects','tasks'},'monitoring_operations':{'monitoring_incidents','projects','tasks','customers'},'agent_builder':{'agent_builds','agents','projects','tasks','customers'},'voice_avatar':{'voice_profiles','avatar_profiles','voice_sessions','avatar_jobs','media_assets','speech_models','voice_models'}}
 PERMISSION_POLICY={'standard_sale': {'mode':'auto','allowed_actors':['ai','staff','owner']},'approved_catalog_order': {'mode':'auto','allowed_actors':['ai','staff','owner']},'normal_invoice': {'mode':'auto','allowed_actors':['ai','staff','owner']},'customer_followup': {'mode':'auto','allowed_actors':['ai','staff','owner']},'draft_contract': {'mode':'auto','allowed_actors':['ai','staff','owner']},'receive_customer_payment': {'mode':'auto','allowed_actors':['ai','staff','owner']},'bank_withdrawal': {'mode':'owner','allowed_actors':['owner']},'bank_transfer': {'mode':'owner','allowed_actors':['owner']},'binding_contract': {'mode':'owner','allowed_actors':['owner']},'exceptional_financial_commitment': {'mode':'owner','allowed_actors':['owner']},'loan': {'mode':'owner','allowed_actors':['owner']},'settlement': {'mode':'owner','allowed_actors':['owner']},'penalty': {'mode':'owner','allowed_actors':['owner']},'exceptional_discount': {'mode':'owner','allowed_actors':['owner']}}
