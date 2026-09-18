@@ -61,7 +61,7 @@ async def create_layan_realtime_call(request: Request) -> Response:
     if not sdp:
         raise HTTPException(status_code=400, detail="Missing WebRTC SDP offer.")
 
-    files = {"sdp": (None, sdp), "session": (None, json.dumps(_realtime_session()))}
+    files = {"sdp": (None, sdp, "application/sdp"), "session": (None, json.dumps(_realtime_session()), "application/json")}
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
