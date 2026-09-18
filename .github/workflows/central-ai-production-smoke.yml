@@ -19,9 +19,11 @@ jobs:
           python - <<'PY'
           import json
           d=json.load(open("/tmp/standard.json"))
-          assert d.get("status") == "ok"
-          assert d.get("required_approval") is False
-          assert d.get("plan_id") and d.get("task_id") and d.get("decision_id")
+          decision=d["decision"]
+          assert d["status"] == "ok"
+          assert decision["department"] == "digital_services"
+          assert decision["required_approval"] is False
+          assert decision["plan_id"] and decision["task_id"] and decision["decision_id"]
           print("STANDARD_INTAKE_OK")
           PY
       - name: Test owner approval gate
@@ -31,9 +33,11 @@ jobs:
           python - <<'PY'
           import json
           d=json.load(open("/tmp/sensitive.json"))
-          assert d.get("status") == "ok"
-          assert d.get("required_approval") is True
-          assert d.get("approval_mode") == "owner"
-          assert d.get("plan_id") and d.get("task_id") and d.get("decision_id")
+          decision=d["decision"]
+          assert d["status"] == "ok"
+          assert decision["required_approval"] is True
+          assert decision["approval_mode"] == "owner"
+          assert decision["department"] == "finance_legal"
+          assert decision["plan_id"] and decision["task_id"] and decision["decision_id"]
           print("APPROVAL_GATE_OK")
           PY
