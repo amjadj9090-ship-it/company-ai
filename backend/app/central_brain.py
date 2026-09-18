@@ -5,6 +5,7 @@ from typing import Any
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
+from .specialist_agents import execute_specialist
 
 router = APIRouter()
 
@@ -231,6 +232,62 @@ def central_ai_intake(request: BrainRequest) -> BrainResponse:
             "execution": "plan_only_until_specialist_executor_is_authorized",
         },
     )
+
+
+@router.post("/api/central-ai/execute", response_model=BrainResponse)
+def central_ai_execute(request: dict[str, Any]) -> BrainResponse:
+    plan_id = int(request.get("plan_id", 0))
+    confirm = bool(request.get("confirm", False))
+    if plan_id <= 0:
+        raise HTTPException(status_code=400, detail="plan_id is required")
+    try:
+        from .main import Entity, Approval, Audit, engine, now
+        from sqlalchemy.orm import Session
+        with Session(engine) as db:
+            plan_entity = db.get(Entity, plan_id)
+            if not plan_entity or plan_entity.kind != "central_plan":
+                raise HTTPException(status_code=404, detail="Central plan not found")
+            data = plan_entity.data or {}
+            if data.get("approval_required"):
+                approved = db.query(Approval).filter(
+                    Approval.entity_type == "central_plan",
+                    Approval.entity_id == plan_id,
+                    Approval.status == "approved",
+                ).first()
+                if not approved:
+                    result = {"status": "blocked_pending_owner", "reason": "Owner approval is required before execution."}
+                else:
+                    result = execute_specialist(data["department"], data["message"], data.get("actions", []), owner_approved=True)
+            elif not confirm:
+                result = {"status": "awaiting_confirmation", "reason": "Explicit execution confirmation is required."}
+            else:
+                task = db.query(Entity).filter(
+                    Entity.kind == "central_task",
+                    Entity.data["plan_id"].as_integer() == plan_id,
+                ).first()
+                result = execute_specialist(data["department"], data["message"], task.data.get("actions", []) if task else [])
+            execution = Entity(
+                kind="specialist_execution",
+                data={"plan_id": plan_id, "department": data.get("department"), "result": result},
+                created_at=now(), updated_at=now(),
+            )
+            db.add(execution)
+            db.flush()
+            if result.get("status") == "completed":
+                plan_entity.data = {**data, "status": "completed", "execution_id": execution.id}
+            elif result.get("status") == "blocked_pending_owner":
+                plan_entity.data = {**data, "status": "awaiting_owner_approval"}
+            db.add(Audit(actor="central-ai", action="specialist_execution", entity="central_plan", entity_id=plan_id, details=result, created_at=now()))
+            db.commit()
+            return BrainResponse(
+                status=result.get("status", "blocked"),
+                decision={"plan_id": plan_id, "department": data.get("department"), "execution": result},
+                guardrails={"owner_approval_required_for_sensitive_commitments": True},
+            )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Specialist execution failed: {exc.__class__.__name__}") from exc
 
 
 @router.post("/api/brain/plan", response_model=BrainResponse)
