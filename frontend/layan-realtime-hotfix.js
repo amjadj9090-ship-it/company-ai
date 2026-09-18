@@ -4,7 +4,7 @@
  */
 (function(){
 'use strict';
-const VERSION='20260919-06';
+const VERSION='20260919-07';
 const state={recognition:null,running:false,busy:false,history:[],speaking:false,wakeLock:null};
 window.LayanVoiceBridge={mode:'browser-live-gemini-multilingual',version:VERSION};
 const stage=()=>document.getElementById('layanVoiceStage');
