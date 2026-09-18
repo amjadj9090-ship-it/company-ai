@@ -5,8 +5,8 @@
 (function(){
   'use strict';
   const VERSION='20260919-02';
-  const state={pc:null,mic:null,audio:null,dc:null,running:false,offerPending:false};
-  window.LayanVoiceBridge={mode:'webrtc-realtime',version:VERSION};
+  const state={pc:null,mic:null,audio:null,dc:null,running:false,offerPending:false,fallback:false,recognition:null,speaking:false};
+  window.LayanVoiceBridge={mode:'webrtc-realtime-with-free-browser-fallback',version:VERSION};
 
   const stage=()=>document.getElementById('layanVoiceStage');
   const text=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v};
@@ -21,12 +21,57 @@
     if(mode)s.classList.add(mode);
   }
   function cleanup(){
+    if(state.recognition){try{state.recognition.onend=null;state.recognition.stop()}catch(_){}}
     if(state.dc){try{state.dc.close()}catch(_){}}
     if(state.pc){try{state.pc.close()}catch(_){}}
     if(state.mic)state.mic.getTracks().forEach(t=>{try{t.stop()}catch(_){}});
     if(state.audio){try{state.audio.pause();state.audio.srcObject=null;state.audio.remove()}catch(_){}}
-    state.pc=state.mic=state.audio=state.dc=null;
-    state.running=false;state.offerPending=false;setMode('');
+    if('speechSynthesis' in window)try{speechSynthesis.cancel()}catch(_){}
+    state.pc=state.mic=state.audio=state.dc=state.recognition=null;
+    state.running=false;state.offerPending=false;state.fallback=false;state.speaking=false;setMode('');
+  }
+  async function startFreeBrowserVoice(){
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SR)throw new Error('المتصفح لا يدعم وضع الصوت المجاني.');
+    state.fallback=true;state.running=true;state.offerPending=false;
+    const lang=(document.documentElement.lang||'ar').toLowerCase().split('-')[0];
+    const recognition=new SR();state.recognition=recognition;
+    recognition.lang=lang==='ar'?'ar-SA':lang+'-'+lang.toUpperCase();
+    recognition.interimResults=true;recognition.continuous=false;recognition.maxAlternatives=1;
+    let heard='';
+    recognition.onstart=()=>{setMode('listening');setState('ليان تستمع إليك…','وضع صوت مجاني: احكي براحتك.');};
+    recognition.onresult=e=>{
+      let finalText='';
+      for(let i=e.resultIndex;i<e.results.length;i++){const t=e.results[i][0]?.transcript||'';if(e.results[i].isFinal)finalText+=t;else text('layanVoiceText',t);}
+      if(finalText.trim())heard=(heard+' '+finalText).trim();
+      if(heard)text('layanVoiceText',heard);
+    };
+    recognition.onerror=e=>{
+      if(e.error==='not-allowed'||e.error==='service-not-allowed'){setState('الميكروفون غير مسموح','اسمح للمتصفح باستخدام الميكروفون ثم جرّب مرة ثانية.');return;}
+      setState('تعذر التقاط الكلام',e.error||'جرّب مرة ثانية.');
+    };
+    recognition.onend=async()=>{
+      if(state.recognition!==recognition)return;
+      state.recognition=null;
+      if(!heard.trim()){if(state.running&&!state.fallback)return;setMode('');setState('ليان جاهزة','اضغط الصوت واحكي معها.');return;}
+      try{
+        setMode('speaking');setState('ليان تحلل كلامك…','عم نجهّز الرد.');
+        const aid=await fetch(apiBase()+'/api/sales-agent/public/config',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('تعذر الوصول لخدمة ليان النصية.');return r.json()});
+        const r=await fetch(apiBase()+'/api/sales-agent/'+aid.build_id+'/conversation',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:heard,language:lang,channel:'voice',assistant:'layan'})});
+        if(!r.ok)throw Error('تعذر الحصول على رد ليان.');
+        const d=await r.json();const reply=(d.reply||'').trim();
+        if(!reply)throw Error('ليان أعادت رداً فارغاً.');
+        text('layanVoiceText',reply);
+        if(!('speechSynthesis' in window))throw Error('المتصفح لا يدعم إخراج الصوت.');
+        const u=new SpeechSynthesisUtterance(reply);u.lang=lang==='ar'?'ar-SA':lang+'-'+lang.toUpperCase();u.rate=.94;u.pitch=1.02;
+        u.onstart=()=>{state.speaking=true;setMode('speaking');setState('ليان تتحدث…','وضع صوت مجاني. بعد الرد رح تسمعك من جديد.');};
+        u.onend=()=>{state.speaking=false;if(state.running&&state.fallback){setMode('');setState('ليان تستمع إليك…','احكي براحتك.');setTimeout(()=>{if(state.running&&state.fallback)startFreeBrowserVoice()},250);}};
+        u.onerror=()=>{state.speaking=false;setMode('');setState('ليان جاهزة','إخراج الصوت غير متاح حالياً.');};
+        speechSynthesis.cancel();speechSynthesis.speak(u);
+      }catch(err){setMode('');setState('تعذر الرد الصوتي',err?.message||'جرّب مرة ثانية.');}
+    };
+    recognition.start();
+    return true;
   }
   function closeLayanVoice(){
     cleanup();
@@ -104,7 +149,16 @@
       await state.pc.setLocalDescription(offer);
       const response=await fetch(apiBase()+'/api/voice-avatar/realtime-call',{method:'POST',headers:{'Content-Type':'application/sdp','Accept':'application/sdp'},body:offer.sdp,cache:'no-store'});
       const answer=await response.text();
-      if(!response.ok)throw new Error(answer||('Voice backend HTTP '+response.status));
+      if(!response.ok){
+        if(response.status===402||response.status===429||/insufficient_quota|credit_balance_exhausted|no credits remaining/i.test(answer)){
+          cleanup();
+          s.classList.add('open');s.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';
+          setState('الصوت المباشر غير متاح حالياً','عم ننتقل تلقائياً لوضع الصوت المجاني على المتصفح.');
+          await startFreeBrowserVoice();
+          return false;
+        }
+        throw new Error(answer||('Voice backend HTTP '+response.status));
+      }
       if(!/^v=0(?:\r?\n|$)/.test(answer.trim()))throw new Error('الخادم أعاد SDP غير صالح.');
       await state.pc.setRemoteDescription({type:'answer',sdp:answer});
       state.offerPending=false;
