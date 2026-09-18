@@ -4,8 +4,8 @@
  */
 (function(){
 'use strict';
-const VERSION='20260919-08';
-const state={recognition:null,running:false,busy:false,history:[],speaking:false,wakeLock:null};
+const VERSION='20260919-09';
+const state={recognition:null,running:false,busy:false,history:[],speaking:false,wakeLock:null,audio:null,audioCtx:null,analyser:null,raf:null};
 window.LayanVoiceBridge={mode:'browser-live-gemini-multilingual',version:VERSION};
 const stage=()=>document.getElementById('layanVoiceStage');
 async function keepScreenAwake(){try{if(!('wakeLock' in navigator))return; if(state.wakeLock?.released===false)return; state.wakeLock=await navigator.wakeLock.request('screen'); state.wakeLock.addEventListener('release',()=>{state.wakeLock=null;});}catch(_){} }
@@ -13,6 +13,10 @@ async function refreshScreenAwake(){if(state.running)await keepScreenAwake();}
 const text=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v};
 const setState=(a,b)=>{text('layanVoiceState',a);text('layanVoiceSub',b||'');const s=stage();if(s)s.setAttribute('data-layan-status',a)};
 const setMode=m=>{const s=stage();if(!s)return;s.classList.remove('listening','speaking');if(m)s.classList.add(m)};
+const setAudioLevel=v=>{const s=stage();if(s)s.style.setProperty('--audio-level',String(Math.max(0,Math.min(1,v||0))))};
+function stopAudioMeter(){if(state.raf)cancelAnimationFrame(state.raf);state.raf=null;if(state.audioCtx){try{state.audioCtx.close()}catch(_){}}state.audioCtx=null;state.analyser=null;setAudioLevel(0)}
+function startAudioMeter(audio){stopAudioMeter();try{const C=window.AudioContext||window.webkitAudioContext;if(!C)return;const ctx=new C(),an=ctx.createAnalyser();an.fftSize=256;an.smoothingTimeConstant=.72;const src=ctx.createMediaElementSource(audio);src.connect(an);an.connect(ctx.destination);state.audioCtx=ctx;state.analyser=an;const data=new Uint8Array(an.fftSize);const tick=()=>{if(!state.analyser||state.audio!==audio)return;an.getByteTimeDomainData(data);let sum=0;for(let i=0;i<data.length;i++){const x=(data[i]-128)/128;sum+=x*x}const rms=Math.min(1,Math.sqrt(sum/data.length)*3.8);setAudioLevel(rms);state.raf=requestAnimationFrame(tick)};tick();}catch(_){setAudioLevel(.35)}}
+function startSyntheticMeter(){stopAudioMeter();let t=0;const tick=()=>{if(!state.speaking)return;t+=.16;setAudioLevel(.18+.16*(.5+.5*Math.sin(t*2.7))+.08*(.5+.5*Math.sin(t*5.1)));state.raf=requestAnimationFrame(tick)};tick()}
 function language(){
  const n=(document.documentElement.lang||navigator.language||'en').toLowerCase();
  return n.split('-')[0];
@@ -22,7 +26,8 @@ function voiceFor(lang){
  const vs=speechSynthesis.getVoices();
  return (lang==='ar'&&vs.find(v=>/^ar-(lb|jo|sy)/i.test(v.lang)))||vs.find(v=>v.lang.toLowerCase().startsWith(lang.toLowerCase()+'-'))||vs.find(v=>v.lang.toLowerCase()===lang.toLowerCase())||null;
 }
-function cleanup(){\n if(state.audio){try{state.audio.pause();state.audio.currentTime=0}catch(_){}} state.audio=null;
+function cleanup(){
+ if(state.audio){try{state.audio.pause();state.audio.currentTime=0}catch(_){}} state.audio=null;
  if(state.recognition){try{state.recognition.onend=null;state.recognition.onerror=null;state.recognition.stop()}catch(_){}}
  if('speechSynthesis' in window)try{speechSynthesis.cancel()}catch(_){}
  if(state.wakeLock){try{state.wakeLock.release()}catch(_){} state.wakeLock=null;}
@@ -34,9 +39,9 @@ function speak(reply,lang){
  speechSynthesis.cancel();
  const u=new SpeechSynthesisUtterance(reply);u.lang=lang||language();u.rate=1.0;u.pitch=1;
  const v=voiceFor(u.lang);if(v)u.voice=v;
- u.onstart=()=>{state.speaking=true;setMode('speaking');setState('ليان تتحدث…','عم تحكي معك بنفس لغة المحادثة.');};
- u.onend=()=>{state.speaking=false;setMode('');if(state.running)setTimeout(startRecognition,250);};
- u.onerror=()=>{state.speaking=false;setMode('');if(state.running)setTimeout(startRecognition,250);};
+ u.onstart=()=>{state.speaking=true;setMode('speaking');startSyntheticMeter();setState('ليان تتحدث…','عم تحكي معك بنفس لغة المحادثة.');};
+ u.onend=()=>{state.speaking=false;stopAudioMeter();setMode('');if(state.running)setTimeout(startRecognition,250);};
+ u.onerror=()=>{state.speaking=false;stopAudioMeter();setMode('');if(state.running)setTimeout(startRecognition,250);};
  speechSynthesis.speak(u);
 }
 async function speakWithGeminiTTS(reply,lang){
@@ -46,10 +51,10 @@ async function speakWithGeminiTTS(reply,lang){
   if(!r.ok)throw Error('tts_unavailable');
   const d=await r.json(); if(!d.audio_base64)throw Error('tts_empty');
   const audio=new Audio('data:audio/wav;base64,'+d.audio_base64); audio.preload='auto';
-  state.audio=audio; state.speaking=true; setMode('speaking'); setState('ليان تتحدث…','صوت ليان الطبيعي بنفس لغة المحادثة.');
+  state.audio=audio; state.speaking=true; setMode('speaking'); startAudioMeter(audio); setState('ليان تتحدث…','صوت ليان الطبيعي بنفس لغة المحادثة.');
   await audio.play();
   await new Promise(resolve=>{audio.onended=resolve;audio.onerror=resolve;});
-  state.audio=null;state.speaking=false;setMode('');if(state.running)setTimeout(startRecognition,250);return true;
+  state.audio=null;state.speaking=false;stopAudioMeter();setMode('');if(state.running)setTimeout(startRecognition,250);return true;
  }catch(_){return false}
 }
 async function askGemini(message,lang){
