@@ -16,10 +16,11 @@ from sqlalchemy.orm import DeclarativeBase,Mapped,mapped_column,Session
 from sqlalchemy.types import JSON
 
 VERSION='8.5.1-security-test'
-DATABASE_URL=os.getenv('DATABASE_URL','sqlite:///./company_ai.db')
+DATABASE_URL=os.getenv('DATABASE_URL','sqlite:///./company_ai.db').strip()
 JWT_SECRET=os.getenv('JWT_SECRET',''); JWT_ALG='HS256'; ACCESS_MINUTES=int(os.getenv('ACCESS_TOKEN_MINUTES','30'))
 ENVIRONMENT=os.getenv('ENVIRONMENT','development').strip().lower()
 COMPANY_OWNER_EMAIL=os.getenv('COMPANY_OWNER_EMAIL','owner@example.com').strip().lower()
+if ENVIRONMENT=='production' and not DATABASE_URL.lower().startswith(('postgresql://','postgres://')): raise RuntimeError('Production DATABASE_URL must point to PostgreSQL')
 if ENVIRONMENT=='production' and len(JWT_SECRET)<32: raise RuntimeError('JWT_SECRET must be at least 32 characters in production')
 if ENVIRONMENT=='production' and os.getenv('PASSWORD_PEPPER','') in ('','dev-pepper'): raise RuntimeError('PASSWORD_PEPPER must be configured in production')
 engine=create_engine(DATABASE_URL,connect_args={'check_same_thread':False} if DATABASE_URL.startswith('sqlite') else {},pool_pre_ping=True)
@@ -105,7 +106,8 @@ def seed(s):
         if not s.scalar(select(Entity).where(Entity.kind==k,Entity.data['name'].as_string()==v)): add(s,k,{'name':v,'status':'planned'})
     s.commit()
 @app.get('/healthz')
-def healthz(): return {'status':'ok','version':VERSION,'mode':os.getenv('ENVIRONMENT','development')}
+def healthz():
+    return {'status':'ok','version':VERSION,'mode':os.getenv('ENVIRONMENT','development'),'database':'postgresql' if DATABASE_URL.lower().startswith(('postgresql://','postgres://')) else 'sqlite'}
 FRONTEND_DIR=os.path.abspath(os.path.join(os.path.dirname(__file__),'..','..','frontend'))
 @app.get('/',include_in_schema=False)
 def public_home(): return FileResponse(os.path.join(FRONTEND_DIR,'index.html'),media_type='text/html')
