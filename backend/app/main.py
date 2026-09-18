@@ -24,7 +24,7 @@ if ENVIRONMENT=='production' and not DATABASE_URL.lower().startswith(('postgresq
 if ENVIRONMENT=='production' and len(JWT_SECRET)<32: raise RuntimeError('JWT_SECRET must be at least 32 characters in production')
 if ENVIRONMENT=='production' and os.getenv('PASSWORD_PEPPER','') in ('','dev-pepper'): raise RuntimeError('PASSWORD_PEPPER must be configured in production')
 engine=create_engine(DATABASE_URL,connect_args={'check_same_thread':False} if DATABASE_URL.startswith('sqlite') else {},pool_pre_ping=True)
-class Base(DeclarativeBase: pass
+class Base(DeclarativeBase): pass
 class Entity(Base):
     __tablename__='entities'; id:Mapped[int]=mapped_column(Integer,primary_key=True); kind:Mapped[str]=mapped_column(String(60),index=True); data:Mapped[dict]=mapped_column(JSON); created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True)); updated_at:Mapped[datetime]=mapped_column(DateTime(timezone=True))
 class Audit(Base):
