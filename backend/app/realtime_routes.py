@@ -73,29 +73,24 @@ async def create_layan_realtime_call(request: Request) -> Response:
     last_line = stripped_sdp.splitlines()[-1][:80] if stripped_sdp.splitlines() else ""
     LOGGER.warning("Layan WebRTC SDP shape: chars=%s first=%r last=%r", len(sdp), first_line, last_line)
 
-    # Use OpenAI's official SDK for the WebRTC call handshake. Its generated
-    # Realtime calls client encodes SDP as a multipart form field with
-    # Content-Type application/sdp and no filename, matching the provider contract.
+    # The current Realtime WebRTC guide accepts the browser SDP as a raw
+    # application/sdp request body. The browser applies the session settings
+    # over the oai-events data channel immediately after the answer arrives.
+    # Avoid multipart encoding here so the SDP reaches the provider byte-for-byte.
     try:
-        from openai import AsyncOpenAI
-
-        client = AsyncOpenAI(
-            api_key=api_key,
-            timeout=30.0,
-            max_retries=0,
-            default_headers={"OpenAI-Safety-Identifier": "company-ai-public"},
-        )
-        # Session configuration is applied immediately over the WebRTC data
-        # channel by the browser. Keep the initial provider handshake minimal:
-        # the SDP offer is the only required field.
-        response = await client.realtime.calls.create(sdp=sdp)
-    except Exception as exc:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                f"{OPENAI_REALTIME_CALLS_URL}?model={REALTIME_MODEL}",
+                headers={
+                    **_provider_headers(api_key),
+                    "Accept": "application/sdp",
+                    "Content-Type": "application/sdp",
+                },
+                content=sdp,
+            )
+    except httpx.HTTPError as exc:
         LOGGER.exception("Layan realtime provider request failed")
-        if hasattr(exc, "status_code") and getattr(exc, "status_code", None):
-            status = int(getattr(exc, "status_code"))
-            detail = str(exc)[:4000]
-            raise HTTPException(status_code=status, detail=f"Realtime provider error: HTTP {status}: {detail}") from exc
-        raise _provider_error(httpx.HTTPError(str(exc))) from exc
+        raise _provider_error(exc) from exc
 
     if response.status_code >= 400:
         detail = response.text[:4000]
