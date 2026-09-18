@@ -64,33 +64,16 @@ async def create_layan_realtime_call(request: Request) -> Response:
     if not sdp:
         raise HTTPException(status_code=400, detail="Missing WebRTC SDP offer.")
 
-    boundary = "company-ai-realtime-call-boundary"
-    session_json = json.dumps(_realtime_session(), separators=(",", ":"))
-    multipart_body = (
-        f"--{boundary}\r\n"
-        'Content-Disposition: form-data; name="sdp"\r\n'
-        "Content-Type: application/sdp\r\n\r\n"
-        f"{sdp}\r\n"
-        f"--{boundary}\r\n"
-        'Content-Disposition: form-data; name="session"\r\n'
-        "Content-Type: application/json\r\n\r\n"
-        f"{session_json}\r\n"
-        f"--{boundary}--\r\n"
-    ).encode("utf-8")
+    files = {"sdp": ("offer.sdp", sdp, "application/sdp")}
+    data = {"session": json.dumps(_realtime_session())}
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 OPENAI_REALTIME_CALLS_URL,
-                headers={
-                    **_provider_headers(api_key),
-                    "Accept": "application/sdp",
-                    "Content-Type": f"multipart/form-data; boundary={boundary}",
-                },
-                content=multipart_body,
+                headers={**_provider_headers(api_key), "Accept": "application/sdp"},
+                files=files,
+                data=data,
             )
-    except httpx.HTTPError as exc:
-        LOGGER.warning("Layan realtime provider connection failed: %s", exc.__class__.__name__)
-        raise _provider_error(exc) from exc
     if response.status_code >= 400:
         detail = response.text[:4000]
         LOGGER.warning("Layan realtime provider rejected call: status=%s body=%s", response.status_code, detail)
