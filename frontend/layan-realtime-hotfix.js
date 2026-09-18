@@ -31,12 +31,15 @@ function fallbackVoice(reason){
   rec.interimResults=false;
   rec.continuous=false;
   S.fallbackRec=rec;
-  set('وضع الصوت البديل','ليان جاهزة للاستماع… احكي الآن.');
+  S.running=true;
+  S._fallbackRestart=false;
+  set('وضع الصوت المجاني','ليان جاهزة للاستماع… احكي بشكل طبيعي.');
   rec.onresult=function(ev){
    var q='';
    for(var i=ev.resultIndex;i<ev.results.length;i++)q+=ev.results[i][0].transcript;
    q=q.trim();
    if(!q)return;
+   S._fallbackRestart=false;
    set('ليان تحلل كلامك…',q);
    if(typeof window.answerLayan==='function'){
     Promise.resolve(window.answerLayan(q)).catch(function(){});
@@ -45,15 +48,40 @@ function fallbackVoice(reason){
    }
   };
   rec.onerror=function(ev){
-   set('تعذر التقاط الصوت','خطأ الميكروفون: '+(ev&&ev.error?ev.error:'غير معروف')+'\\n'+(reason||''));
-   S.running=false;S.fallbackRec=null;
+   var err=ev&&ev.error?ev.error:'غير معروف';
+   if(err==='no-speech'||err==='aborted')return;
+   console.warn('Layan free voice recognition error',err);
+   set('وضع الصوت المجاني','تعذر التقاط هذه الجملة. عم نعيد الاستماع تلقائياً…');
   };
-  rec.onend=function(){S.fallbackRec=null;S.running=false;};
+  rec.onend=function(){
+   S.fallbackRec=null;
+   if(!S.running)return;
+   S._fallbackRestart=true;
+   setTimeout(function(){
+    if(!S.running||!S._fallbackRestart)return;
+    try{
+     var next=new SR();
+     next.lang=(document.documentElement.lang||'ar-SA');
+     next.interimResults=false;
+     next.continuous=false;
+     S.fallbackRec=next;
+     next.onresult=rec.onresult;
+     next.onerror=rec.onerror;
+     next.onend=rec.onend;
+     next.start();
+     set('وضع الصوت المجاني','المحادثة مستمرة — ليان عم تسمعك. احكي الجملة التالية.');
+    }catch(e){
+     S.fallbackRec=null;
+     if(S.running)setTimeout(function(){if(S.running)fallbackVoice(reason)},700);
+    }
+   },450);
+  };
   rec.start();
   return true;
  }catch(e){
-  set('تعذر تشغيل الصوت',String(e&&e.message||e));
+  set('تعذر تشغيل الصوت المجاني',String(e&&e.message||e));
   S.running=false;
+  S.fallbackRec=null;
   return false;
  }
 }
