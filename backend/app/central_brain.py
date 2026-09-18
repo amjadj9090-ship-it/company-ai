@@ -208,32 +208,6 @@ def _persist_orchestration(request: BrainRequest, decision: BrainDecision) -> di
         return {"plan_id": None, "task_id": None, "decision_id": None}
 
 
-@router.post("/api/central-ai/intake", response_model=BrainResponse)
-def central_ai_intake(request: BrainRequest) -> BrainResponse:
-    decision = plan(request.message, request.context)
-    ids = _persist_orchestration(request, decision)
-    return BrainResponse(
-        status="ok",
-        decision={
-            "department": decision.department,
-            "intent": decision.intent,
-            "priority": decision.priority,
-            "approval_mode": decision.approval_mode,
-            "required_approval": decision.required_approval,
-            "next_actions": list(decision.next_actions),
-            "channel": request.channel,
-            "language": request.language or "auto",
-            **ids,
-        },
-        guardrails={
-            "owner_approval_required_for_sensitive_commitments": True,
-            "money_movement_allowed_without_owner": False,
-            "contract_signing_allowed_without_owner": False,
-            "execution": "plan_only_until_specialist_executor_is_authorized",
-        },
-    )
-
-
 @router.post("/api/central-ai/execute", response_model=BrainResponse)
 def central_ai_execute(request: dict[str, Any]) -> BrainResponse:
     plan_id = int(request.get("plan_id", 0))
