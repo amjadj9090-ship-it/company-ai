@@ -5,7 +5,7 @@
  */
 (function(){
   'use strict';
-  var VERSION='20260918-08';
+  var VERSION='20260918-09';
   window.LayanVoiceBridge={mode:'browser-stt-gemini-browser-tts',realtimeProvider:'optional-adapter',version:VERSION};
 
   function injectStyle(){
@@ -29,6 +29,35 @@
     document.head.appendChild(s);
   }
 
+  function bindLayanVoiceEntry(){
+    var entry=document.getElementById('layanVoiceEntry');
+    if(!entry||entry.dataset.layanBound==='1')return;
+    entry.dataset.layanBound='1';
+    entry.addEventListener('click',function(ev){
+      ev.preventDefault();
+      ev.stopPropagation();
+      var stage=document.getElementById('layanVoiceStage');
+      if(stage){
+        stage.classList.add('open');
+        stage.setAttribute('aria-hidden','false');
+        document.body.style.overflow='hidden';
+      }
+    },true);
+  }
+
+  document.addEventListener('click',function(ev){
+    var entry=ev.target&&ev.target.closest?ev.target.closest('#layanVoiceEntry'):null;
+    if(!entry)return;
+    var stage=document.getElementById('layanVoiceStage');
+    if(stage){
+      ev.preventDefault();
+      ev.stopPropagation();
+      stage.classList.add('open');
+      stage.setAttribute('aria-hidden','false');
+      document.body.style.overflow='hidden';
+    }
+  },true);
+
   function polish(){
     injectStyle();
     var stage=document.getElementById('layanVoiceStage');
@@ -50,5 +79,5 @@
     var demo=document.querySelector('.layanDemo');if(demo)demo.setAttribute('aria-label','تجربة صوت ليان');
   }
 
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',polish);else polish();
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',function(){bindLayanVoiceEntry();polish();});}else{bindLayanVoiceEntry();polish();}
 })();
