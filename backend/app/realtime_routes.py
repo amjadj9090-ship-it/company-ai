@@ -62,22 +62,29 @@ async def create_layan_realtime_call(request: Request) -> Response:
     if not sdp:
         raise HTTPException(status_code=400, detail="Missing WebRTC SDP offer.")
 
-    # OpenAI's Realtime calls endpoint expects multipart/form-data where SDP is
-    # a normal form field with Content-Type application/sdp (no filename), and
-    # session is a JSON form field. This mirrors the official SDK encoding.
-    files = {
-        "sdp": (None, sdp, "application/sdp"),
-        "session": (None, json.dumps(_realtime_session()), "application/json"),
-    }
+    # Use OpenAI's official SDK for the WebRTC call handshake. Its generated
+    # Realtime calls client encodes SDP as a multipart form field with
+    # Content-Type application/sdp and no filename, matching the provider contract.
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
-                OPENAI_REALTIME_CALLS_URL,
-                headers={**_provider_headers(api_key), "Accept": "application/sdp"},
-                files=files,
-            )
-    except httpx.HTTPError as exc:
-        raise _provider_error(exc) from exc
+        from openai import AsyncOpenAI
+
+        client = AsyncOpenAI(
+            api_key=api_key,
+            timeout=30.0,
+            max_retries=0,
+            default_headers={"OpenAI-Safety-Identifier": "company-ai-public"},
+        )
+        response = await client.realtime.calls.create(
+            sdp=sdp,
+            session=_realtime_session(),
+        )
+    except Exception as exc:
+        LOGGER.exception("Layan realtime provider request failed")
+        if hasattr(exc, "status_code") and getattr(exc, "status_code", None):
+            status = int(getattr(exc, "status_code"))
+            detail = str(exc)[:4000]
+            raise HTTPException(status_code=status, detail=f"Realtime provider error: HTTP {status}: {detail}") from exc
+        raise _provider_error(httpx.HTTPError(str(exc))) from exc
 
     if response.status_code >= 400:
         detail = response.text[:4000]
