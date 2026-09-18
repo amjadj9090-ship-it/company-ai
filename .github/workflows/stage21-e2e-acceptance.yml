@@ -35,8 +35,16 @@ jobs:
             const errors=[];
             page.on('pageerror',e=>errors.push(String(e)));
             page.on('console',m=>{if(m.type()==='error') errors.push(m.text());});
-            const health=await page.request.get(`${base}/healthz`);
-            if(!health.ok()) throw new Error(`healthz failed: ${health.status()}`);
+            let health;
+            for (let attempt=1; attempt<=24; attempt++) {
+              try {
+                health=await page.request.get(`${base}/healthz`, {timeout:5000});
+                if(health.ok()) break;
+              } catch (_) {}
+              await new Promise(r=>setTimeout(r,5000));
+            }
+            if(!health || !health.ok()) throw new Error(`healthz failed after waiting for latest deploy: ${health&&health.status()}`);
+            await new Promise(r=>setTimeout(r,10000));
             const healthJson=await health.json();
             if(healthJson.status!=='ok'||healthJson.mode!=='production') throw new Error(`unexpected health: ${JSON.stringify(healthJson)}`);
             const response=await page.goto(base,{waitUntil:'networkidle'});
