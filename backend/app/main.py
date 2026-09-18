@@ -168,11 +168,11 @@ def _layan_gemini_reply(message: str, language: str = 'auto', history: list[dict
     if not api_key:
         return None
     contents = []
-    for item in (history or [])[-12:]:
+    for item in (history or [])[-6:]:
         role = 'model' if item.get('role') in {'assistant', 'model'} else 'user'
         text_value = str(item.get('text') or item.get('content') or '').strip()
         if text_value:
-            contents.append({'role': role, 'parts': [{'text': text_value[:4000]}]})
+            contents.append({'role': role, 'parts': [{'text': text_value[:2000]}]})
     contents.append({'role': 'user', 'parts': [{'text': message.strip()}]})
     system = ('أنت ليان، موظفة مبيعات ومساعدة أعمال حقيقية ضمن Company AI. '
               'تحدثي بالعربية الشامية الطبيعية عندما يكون المستخدم عربياً، وبنفس لغة المستخدم عند استخدام لغة أخرى. '
@@ -180,7 +180,7 @@ def _layan_gemini_reply(message: str, language: str = 'auto', history: list[dict
               'إذا كان الطلب عن شركة AI أو موقع أو تطبيق أو تسويق أو عميل أو مشروع، قدمي خطوات عملية مرتبطة بالطلب. '
               'لا تدّعي تنفيذ شيء لم يتم تنفيذه فعلياً. أي تحويل بنكي أو سحب أو التزام مالي أو عقد ملزم يحتاج موافقة صاحب الشركة. '
               'لا تذكري أنك نموذج ذكاء اصطناعي إلا إذا سُئلت مباشرة.')
-    payload = {'system_instruction': {'parts': [{'text': system}]}, 'contents': contents, 'generationConfig': {'temperature': 0.7, 'maxOutputTokens': 500}}
+    payload = {'system_instruction': {'parts': [{'text': system}]}, 'contents': contents, 'generationConfig': {'temperature': 0.7, 'maxOutputTokens': 320}}
     try:
         import urllib.request
         req = urllib.request.Request('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent?key=' + api_key,
