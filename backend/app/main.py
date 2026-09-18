@@ -141,27 +141,12 @@ class SpeechModelIn(BaseModel): name:str; model_type:str; languages:list[str]=Fi
 class SalesConversationIn(BaseModel):
     message: str = Field(min_length=1, max_length=8000)
     language: Optional[str] = 'auto'
-    history: list[dict] = Field(default_factory=list, max_length=12)
+    history: list[dict] = Field(default_factory=list, max_length=6)
+
 
 def _layan_local_reply(message: str, language: str = 'auto') -> str:
-    t = message.strip().lower()
-    if any(k in t for k in ('تحويل', 'دفع', 'سحب', 'بنك', 'مبلغ مالي', 'transfer', 'withdraw', 'bank', 'payment')):
-        return 'فهمت طلبك. هذا يتعلق بعملية مالية، لذلك أقدر أوضح لك الخطوات وأجهّز الطلب، لكن أي تحويل أو التزام مالي يحتاج موافقة صاحب الشركة قبل التنفيذ.'
-    if any(k in t for k in ('موقع', 'website', 'web', 'موقع إلكتروني')):
-        return 'أكيد. فينا نحدد هدف الموقع، الصفحات المطلوبة، اللغة، وربطه بالتسويق وطلبات العملاء. إذا بتخبرني شو نوع الموقع والهدف منه، بجهز لك التصور المناسب.'
-    if any(k in t for k in ('تطبيق', 'ابلكيشن', 'app', 'application', 'mobile')):
-        return 'تمام. فينا نحدد فكرة التطبيق، المستخدمين، أهم الوظائف، والمنصات المطلوبة، وبعدها نرتب نطاق العمل والتكلفة التقديرية.'
-    if any(k in t for k in ('تسويق', 'إعلان', 'حملة', 'marketing', 'campaign', 'seo')):
-        return 'ممتاز. فينا نبدأ بتحديد المنتج والسوق والهدف، وبعدها نجهز خطة تسويق ومحتوى وقنوات وصول للعملاء ونقيس النتائج.'
-    if any(k in t for k in ('عميل', 'زبون', 'شركة', 'customer', 'client', 'lead')):
-        return 'أكيد. فيني أساعدك بتأهيل العميل وفهم حاجته وتحديد الخدمة المناسبة، وبعدها تسجيل المتابعة ضمن نظام العملاء.'
-    if any(k in t for k in ('مشروع', 'فكرة', 'جدوى', 'business', 'startup')):
-        return 'خلينا نفهم الفكرة أولاً: شو المنتج أو الخدمة، مين العميل المستهدف، بأي سوق، وشو الهدف من المشروع؟ بعدها بقدر أرتب لك الخطوات العملية.'
-    if any(k in t for k in ('سعر', 'تكلفة', 'price', 'cost', 'quote')):
-        return 'بقدر أساعدك بتحديد نطاق العمل وتجهيز عرض مناسب، لكن السعر يعتمد على المطلوب تحديداً. احكيلي شو الخدمة أو المشروع وحجمه والنتيجة اللي بدك توصل إلها.'
-    if any(k in t for k in ('مرحبا', 'اهلا', 'أهلا', 'hello', 'hi')):
-        return 'أهلا وسهلا! أنا ليان من Company AI. احكيلي شو بدك تعمل، وأنا بساعدك خطوة بخطوة.'
-    return 'فهمت عليك. احكيلي شوي أكثر عن المطلوب والنتيجة اللي بدك توصل إلها، وأنا بوجّهك للخطوة المناسبة.'
+    return 'فهمت عليك. خدمة الذكاء المركزي غير متاحة حالياً، لذلك لن أعطيك جواباً عشوائياً. جرّب الطلب مرة أخرى بعد عودة الخدمة.'
+
 
 def _layan_gemini_reply(message: str, language: str = 'auto', history: list[dict] | None = None) -> str | None:
     api_key = os.getenv('GEMINI_API_KEY', '').strip()
@@ -174,17 +159,28 @@ def _layan_gemini_reply(message: str, language: str = 'auto', history: list[dict
         if text_value:
             contents.append({'role': role, 'parts': [{'text': text_value[:2000]}]})
     contents.append({'role': 'user', 'parts': [{'text': message.strip()}]})
-    system = ('أنت ليان، موظفة مبيعات ومساعدة أعمال حقيقية ضمن Company AI. '
-              'تحدثي بالعربية الشامية الطبيعية عندما يكون المستخدم عربياً، وبنفس لغة المستخدم عند استخدام لغة أخرى. '
-              'لا تكرري قالباً ثابتاً. افهمي كل رسالة بحسب معناها وسياق المحادثة، وأجيبي مباشرة وباختصار مفيد. '
-              'إذا كان الطلب عن شركة AI أو موقع أو تطبيق أو تسويق أو عميل أو مشروع، قدمي خطوات عملية مرتبطة بالطلب. '
-              'لا تدّعي تنفيذ شيء لم يتم تنفيذه فعلياً. أي تحويل بنكي أو سحب أو التزام مالي أو عقد ملزم يحتاج موافقة صاحب الشركة. '
-              'لا تذكري أنك نموذج ذكاء اصطناعي إلا إذا سُئلت مباشرة.')
-    payload = {'system_instruction': {'parts': [{'text': system}]}, 'contents': contents, 'generationConfig': {'temperature': 0.7, 'maxOutputTokens': 320}}
+    system = (
+        'أنت ليان، المساعدة الصوتية والعقل الحواري في Company AI. '
+        'افهمي كل رسالة بحسب معناها وسياق المحادثة، ولا تستخدمي قوالب ثابتة أو تكرري جواباً عاماً. '
+        'تحدثي بالعربية الشامية الطبيعية عندما يكون المستخدم عربياً، وبنفس لغة المستخدم عند استخدام لغة أخرى. '
+        'أجيبي مباشرة وباختصار مفيد، واطلبي توضيحاً فقط عندما يكون ضرورياً. '
+        'إذا كان الطلب يحتاج عملاً داخل Company AI، حددي المطلوب والخطوة التالية بوضوح، ولا تدّعي تنفيذ أي إجراء لم يُنفذ فعلياً. '
+        'يمكنك التخطيط واقتراح الإجراءات، لكن تحويل الأموال أو السحب أو توقيع عقد أو أي التزام مالي/قانوني ملزم يحتاج موافقة المالك. '
+        'اعتبري سجل المحادثة السابق جزءاً من السياق ولا تعيدي السؤال عن معلومات موجودة فيه.'
+    )
+    payload = {
+        'system_instruction': {'parts': [{'text': system}]},
+        'contents': contents,
+        'generationConfig': {'temperature': 0.65, 'maxOutputTokens': 320}
+    }
     try:
         import urllib.request
-        req = urllib.request.Request('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent?key=' + api_key,
-            data=json.dumps(payload, ensure_ascii=False).encode('utf-8'), headers={'Content-Type': 'application/json'}, method='POST')
+        req = urllib.request.Request(
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent',
+            data=json.dumps(payload, ensure_ascii=False).encode('utf-8'),
+            headers={'Content-Type': 'application/json', 'x-goog-api-key': api_key},
+            method='POST'
+        )
         with urllib.request.urlopen(req, timeout=15) as resp:
             data = json.loads(resp.read().decode('utf-8'))
         parts = data.get('candidates', [{}])[0].get('content', {}).get('parts', [])
@@ -194,151 +190,64 @@ def _layan_gemini_reply(message: str, language: str = 'auto', history: list[dict
         print(f'Layan Gemini reply unavailable: {type(exc).__name__}: {exc}')
         return None
 
-@app.get('/api/sales-agent/public/config')
-def public_sales_config(s: Session = Depends(db)):
-    row = s.scalar(select(Entity).where(Entity.kind == 'agent_builds', Entity.data['slug'].as_string() == 'public-sales-ai'))
-    if not row:
-        raise HTTPException(status_code=404, detail='Public sales agent is not configured')
-    return {'build_id': str(row.id), 'slug': 'public-sales-ai', 'name': row.data.get('name', 'Company AI Sales Employee'), 'status': row.data.get('status', 'active')}
-
-@app.post('/api/sales-agent/{agent_id}/conversation')
-def public_sales_conversation(agent_id: str, x: SalesConversationIn, s: Session = Depends(db)):
-    row = s.get(Entity, int(agent_id)) if agent_id.isdigit() else s.scalar(select(Entity).where(Entity.kind == 'agent_builds', Entity.data['slug'].as_string() == agent_id))
-    if not row or row.kind != 'agent_builds' or row.data.get('slug') != 'public-sales-ai':
-        raise HTTPException(status_code=404, detail='Sales agent not found')
-    reply = _layan_gemini_reply(x.message, x.language or 'auto', x.history) or _layan_local_reply(x.message, x.language or 'auto')
-    s.add(Audit(actor='layan-public', action='conversation_message', entity='agent_builds', entity_id=row.id, details={'message': x.message[:1000], 'language': x.language or 'auto', 'reply': reply[:2000]}, created_at=now()))
-    s.commit()
-    return {'reply': reply, 'agent_id': str(row.id), 'language': x.language or 'auto', 'source': 'gemini-free-tier' if os.getenv('GEMINI_API_KEY', '').strip() else 'company-ai-contextual-fallback'}
-
-
-class SalesConversationIn(BaseModel):
-    message: str = Field(min_length=1, max_length=8000)
-    language: Optional[str] = 'auto'
-    history: list[dict] = Field(default_factory=list, max_length=12)
-
-def _layan_local_reply(message: str, language: str = 'auto') -> str:
-    t = message.strip().lower()
-    if any(k in t for k in ('تحويل', 'دفع', 'سحب', 'بنك', 'مبلغ مالي', 'transfer', 'withdraw', 'bank', 'payment')):
-        return 'فهمت طلبك. هذا يتعلق بعملية مالية، لذلك أقدر أوضح لك الخطوات وأجهّز الطلب، لكن أي تحويل أو التزام مالي يحتاج موافقة صاحب الشركة قبل التنفيذ.'
-    if any(k in t for k in ('موقع', 'website', 'web', 'موقع إلكتروني')):
-        return 'أكيد. فينا نحدد هدف الموقع، الصفحات المطلوبة، اللغة، وربطه بالتسويق وطلبات العملاء. إذا بتخبرني شو نوع الموقع والهدف منه، بجهز لك التصور المناسب.'
-    if any(k in t for k in ('تطبيق', 'ابلكيشن', 'app', 'application', 'mobile')):
-        return 'تمام. فينا نحدد فكرة التطبيق، المستخدمين، أهم الوظائف، والمنصات المطلوبة، وبعدها نرتب نطاق العمل والتكلفة التقديرية.'
-    if any(k in t for k in ('تسويق', 'إعلان', 'حملة', 'marketing', 'campaign', 'seo')):
-        return 'ممتاز. فينا نبدأ بتحديد المنتج والسوق والهدف، وبعدها نجهز خطة تسويق ومحتوى وقنوات وصول للعملاء ونقيس النتائج.'
-    if any(k in t for k in ('عميل', 'زبون', 'شركة', 'customer', 'client', 'lead')):
-        return 'أكيد. فيني أساعدك بتأهيل العميل وفهم حاجته وتحديد الخدمة المناسبة، وبعدها تسجيل المتابعة ضمن نظام العملاء.'
-    if any(k in t for k in ('مشروع', 'فكرة', 'جدوى', 'business', 'startup')):
-        return 'خلينا نفهم الفكرة أولاً: شو المنتج أو الخدمة، مين العميل المستهدف، بأي سوق، وشو الهدف من المشروع؟ بعدها بقدر أرتب لك الخطوات العملية.'
-    if any(k in t for k in ('سعر', 'تكلفة', 'price', 'cost', 'quote')):
-        return 'بقدر أساعدك بتحديد نطاق العمل وتجهيز عرض مناسب، لكن السعر يعتمد على المطلوب تحديداً. احكيلي شو الخدمة أو المشروع وحجمه والنتيجة اللي بدك توصل إلها.'
-    if any(k in t for k in ('مرحبا', 'اهلا', 'أهلا', 'hello', 'hi')):
-        return 'أهلا وسهلا! أنا ليان من Company AI. احكيلي شو بدك تعمل، وأنا بساعدك خطوة بخطوة.'
-    return 'فهمت عليك. احكيلي شوي أكثر عن المطلوب والنتيجة اللي بدك توصل إلها، وأنا بوجّهك للخطوة المناسبة.'
 
 @app.get('/api/sales-agent/public/config')
 def public_sales_config(s: Session = Depends(db)):
-    row = s.scalar(select(Entity).where(Entity.kind == 'agent_builds', Entity.data['slug'].as_string() == 'public-sales-ai'))
+    row = s.scalar(select(Entity).where(
+        Entity.kind == 'agent_builds',
+        Entity.data['slug'].as_string() == 'public-sales-ai'
+    ))
     if not row:
         raise HTTPException(status_code=404, detail='Public sales agent is not configured')
-    return {'build_id': str(row.id), 'slug': 'public-sales-ai', 'name': row.data.get('name', 'Company AI Sales Employee'), 'status': row.data.get('status', 'active')}
+    return {
+        'build_id': str(row.id),
+        'slug': 'public-sales-ai',
+        'name': row.data.get('name', 'Company AI Sales Employee'),
+        'status': row.data.get('status', 'active')
+    }
+
 
 @app.post('/api/sales-agent/{agent_id}/conversation')
 def public_sales_conversation(agent_id: str, x: SalesConversationIn, s: Session = Depends(db)):
-    row = s.get(Entity, int(agent_id)) if agent_id.isdigit() else s.scalar(select(Entity).where(Entity.kind == 'agent_builds', Entity.data['slug'].as_string() == agent_id))
+    row = s.get(Entity, int(agent_id)) if agent_id.isdigit() else s.scalar(
+        select(Entity).where(
+            Entity.kind == 'agent_builds',
+            Entity.data['slug'].as_string() == agent_id
+        )
+    )
     if not row or row.kind != 'agent_builds' or row.data.get('slug') != 'public-sales-ai':
         raise HTTPException(status_code=404, detail='Sales agent not found')
-    reply = _layan_local_reply(x.message, x.language or 'auto')
-    s.add(Audit(actor='layan-public', action='conversation_message', entity='agent_builds', entity_id=row.id, details={'message': x.message[:1000], 'language': x.language or 'auto', 'reply': reply[:2000]}, created_at=now()))
+    reply = _layan_gemini_reply(
+        x.message,
+        x.language or 'auto',
+        x.history
+    )
+    source = 'gemini-free-tier'
+    if not reply:
+        reply = _layan_local_reply(x.message, x.language or 'auto')
+        source = 'service-unavailable-fallback'
+    s.add(Audit(
+        actor='layan-public',
+        action='conversation_message',
+        entity='agent_builds',
+        entity_id=row.id,
+        details={
+            'message': x.message[:1000],
+            'language': x.language or 'auto',
+            'history_turns': len(x.history),
+            'reply': reply[:2000],
+            'source': source
+        },
+        created_at=now()
+    ))
     s.commit()
-    return {'reply': reply, 'agent_id': str(row.id), 'language': x.language or 'auto', 'source': 'company-ai-contextual-fallback'}
+    return {
+        'reply': reply,
+        'agent_id': str(row.id),
+        'language': x.language or 'auto',
+        'source': source
+    }
 
-
-class SalesConversationIn(BaseModel):
-    message: str = Field(min_length=1, max_length=8000)
-    language: Optional[str] = 'auto'
-    history: list[dict] = Field(default_factory=list, max_length=12)
-
-def _layan_local_reply(message: str, language: str = 'auto') -> str:
-    t = message.strip().lower()
-    if any(k in t for k in ('تحويل', 'دفع', 'سحب', 'بنك', 'مبلغ مالي', 'transfer', 'withdraw', 'bank', 'payment')):
-        return 'فهمت طلبك. هذا يتعلق بعملية مالية، لذلك أقدر أوضح لك الخطوات وأجهّز الطلب، لكن أي تحويل أو التزام مالي يحتاج موافقة صاحب الشركة قبل التنفيذ.'
-    if any(k in t for k in ('موقع', 'website', 'web', 'موقع إلكتروني')):
-        return 'أكيد. فينا نحدد هدف الموقع، الصفحات المطلوبة، اللغة، وربطه بالتسويق وطلبات العملاء. إذا بتخبرني شو نوع الموقع والهدف منه، بجهز لك التصور المناسب.'
-    if any(k in t for k in ('تطبيق', 'ابلكيشن', 'app', 'application', 'mobile')):
-        return 'تمام. فينا نحدد فكرة التطبيق، المستخدمين، أهم الوظائف، والمنصات المطلوبة، وبعدها نرتب نطاق العمل والتكلفة التقديرية.'
-    if any(k in t for k in ('تسويق', 'إعلان', 'حملة', 'marketing', 'campaign', 'seo')):
-        return 'ممتاز. فينا نبدأ بتحديد المنتج والسوق والهدف، وبعدها نجهز خطة تسويق ومحتوى وقنوات وصول للعملاء ونقيس النتائج.'
-    if any(k in t for k in ('عميل', 'زبون', 'شركة', 'customer', 'client', 'lead')):
-        return 'أكيد. فيني أساعدك بتأهيل العميل وفهم حاجته وتحديد الخدمة المناسبة، وبعدها تسجيل المتابعة ضمن نظام العملاء.'
-    if any(k in t for k in ('مشروع', 'فكرة', 'جدوى', 'business', 'startup')):
-        return 'خلينا نفهم الفكرة أولاً: شو المنتج أو الخدمة، مين العميل المستهدف، بأي سوق، وشو الهدف من المشروع؟ بعدها بقدر أرتب لك الخطوات العملية.'
-    if any(k in t for k in ('سعر', 'تكلفة', 'price', 'cost', 'quote')):
-        return 'بقدر أساعدك بتحديد نطاق العمل وتجهيز عرض مناسب، لكن السعر يعتمد على المطلوب تحديداً. احكيلي شو الخدمة أو المشروع وحجمه والنتيجة اللي بدك توصل إلها.'
-    if any(k in t for k in ('مرحبا', 'اهلا', 'أهلا', 'hello', 'hi')):
-        return 'أهلا وسهلا! أنا ليان من Company AI. احكيلي شو بدك تعمل، وأنا بساعدك خطوة بخطوة.'
-    return 'فهمت عليك. احكيلي شوي أكثر عن المطلوب والنتيجة اللي بدك توصل إلها، وأنا بوجّهك للخطوة المناسبة.'
-
-@app.get('/api/sales-agent/public/config')
-def public_sales_config(s: Session = Depends(db)):
-    row = s.scalar(select(Entity).where(Entity.kind == 'agent_builds', Entity.data['slug'].as_string() == 'public-sales-ai'))
-    if not row:
-        raise HTTPException(status_code=404, detail='Public sales agent is not configured')
-    return {'build_id': str(row.id), 'slug': 'public-sales-ai', 'name': row.data.get('name', 'Company AI Sales Employee'), 'status': row.data.get('status', 'active')}
-
-@app.post('/api/sales-agent/{agent_id}/conversation')
-def public_sales_conversation(agent_id: str, x: SalesConversationIn, s: Session = Depends(db)):
-    row = s.get(Entity, int(agent_id)) if agent_id.isdigit() else s.scalar(select(Entity).where(Entity.kind == 'agent_builds', Entity.data['slug'].as_string() == agent_id))
-    if not row or row.kind != 'agent_builds' or row.data.get('slug') != 'public-sales-ai':
-        raise HTTPException(status_code=404, detail='Sales agent not found')
-    reply = _layan_local_reply(x.message, x.language or 'auto')
-    s.add(Audit(actor='layan-public', action='conversation_message', entity='agent_builds', entity_id=row.id, details={'message': x.message[:1000], 'language': x.language or 'auto', 'reply': reply[:2000]}, created_at=now()))
-    s.commit()
-    return {'reply': reply, 'agent_id': str(row.id), 'language': x.language or 'auto', 'source': 'company-ai-contextual-fallback'}
-
-
-class SalesConversationIn(BaseModel):
-    message: str = Field(min_length=1, max_length=8000)
-    language: Optional[str] = 'auto'
-    history: list[dict] = Field(default_factory=list, max_length=12)
-
-def _layan_local_reply(message: str, language: str = 'auto') -> str:
-    t = message.strip().lower()
-    if any(k in t for k in ('تحويل', 'دفع', 'سحب', 'بنك', 'مبلغ مالي', 'transfer', 'withdraw', 'bank', 'payment')):
-        return 'فهمت طلبك. هذا يتعلق بعملية مالية، لذلك أقدر أوضح لك الخطوات وأجهّز الطلب، لكن أي تحويل أو التزام مالي يحتاج موافقة صاحب الشركة قبل التنفيذ.'
-    if any(k in t for k in ('موقع', 'website', 'web', 'موقع إلكتروني')):
-        return 'أكيد. فينا نحدد هدف الموقع، الصفحات المطلوبة، اللغة، وربطه بالتسويق وطلبات العملاء. إذا بتخبرني شو نوع الموقع والهدف منه، بجهز لك التصور المناسب.'
-    if any(k in t for k in ('تطبيق', 'ابلكيشن', 'app', 'application', 'mobile')):
-        return 'تمام. فينا نحدد فكرة التطبيق، المستخدمين، أهم الوظائف، والمنصات المطلوبة، وبعدها نرتب نطاق العمل والتكلفة التقديرية.'
-    if any(k in t for k in ('تسويق', 'إعلان', 'حملة', 'marketing', 'campaign', 'seo')):
-        return 'ممتاز. فينا نبدأ بتحديد المنتج والسوق والهدف، وبعدها نجهز خطة تسويق ومحتوى وقنوات وصول للعملاء ونقيس النتائج.'
-    if any(k in t for k in ('عميل', 'زبون', 'شركة', 'customer', 'client', 'lead')):
-        return 'أكيد. فيني أساعدك بتأهيل العميل وفهم حاجته وتحديد الخدمة المناسبة، وبعدها تسجيل المتابعة ضمن نظام العملاء.'
-    if any(k in t for k in ('مشروع', 'فكرة', 'جدوى', 'business', 'startup')):
-        return 'خلينا نفهم الفكرة أولاً: شو المنتج أو الخدمة، مين العميل المستهدف، بأي سوق، وشو الهدف من المشروع؟ بعدها بقدر أرتب لك الخطوات العملية.'
-    if any(k in t for k in ('سعر', 'تكلفة', 'price', 'cost', 'quote')):
-        return 'بقدر أساعدك بتحديد نطاق العمل وتجهيز عرض مناسب، لكن السعر يعتمد على المطلوب تحديداً. احكيلي شو الخدمة أو المشروع وحجمه والنتيجة اللي بدك توصل إلها.'
-    if any(k in t for k in ('مرحبا', 'اهلا', 'أهلا', 'hello', 'hi')):
-        return 'أهلا وسهلا! أنا ليان من Company AI. احكيلي شو بدك تعمل، وأنا بساعدك خطوة بخطوة.'
-    return 'فهمت عليك. احكيلي شوي أكثر عن المطلوب والنتيجة اللي بدك توصل إلها، وأنا بوجّهك للخطوة المناسبة.'
-
-@app.get('/api/sales-agent/public/config')
-def public_sales_config(s: Session = Depends(db)):
-    row = s.scalar(select(Entity).where(Entity.kind == 'agent_builds', Entity.data['slug'].as_string() == 'public-sales-ai'))
-    if not row:
-        raise HTTPException(status_code=404, detail='Public sales agent is not configured')
-    return {'build_id': str(row.id), 'slug': 'public-sales-ai', 'name': row.data.get('name', 'Company AI Sales Employee'), 'status': row.data.get('status', 'active')}
-
-@app.post('/api/sales-agent/{agent_id}/conversation')
-def public_sales_conversation(agent_id: str, x: SalesConversationIn, s: Session = Depends(db)):
-    row = s.get(Entity, int(agent_id)) if agent_id.isdigit() else s.scalar(select(Entity).where(Entity.kind == 'agent_builds', Entity.data['slug'].as_string() == agent_id))
-    if not row or row.kind != 'agent_builds' or row.data.get('slug') != 'public-sales-ai':
-        raise HTTPException(status_code=404, detail='Sales agent not found')
-    reply = _layan_local_reply(x.message, x.language or 'auto')
-    s.add(Audit(actor='layan-public', action='conversation_message', entity='agent_builds', entity_id=row.id, details={'message': x.message[:1000], 'language': x.language or 'auto', 'reply': reply[:2000]}, created_at=now()))
-    s.commit()
-    return {'reply': reply, 'agent_id': str(row.id), 'language': x.language or 'auto', 'source': 'company-ai-contextual-fallback'}
 
 ROLE_OK={'admin':{'*'},'sales':{'customers','projects','tasks','quotes','orders','tickets','leads','proposals','products'},'finance':{'invoices','orders','customers'},'trade':{'suppliers','products','orders','quotes'},'marketing':{'customers','projects','tasks','quotes','leads','campaigns','content'},'support':{'customers','tickets'},'growth':{'leads','campaigns','partners','content'},'entrepreneurship':{'feasibility_studies','projects','tasks','customers'},'website_growth':{'website_assessments','projects','tasks','customers'},'cybersecurity':{'security_assessments','security_incidents','projects','tasks'},'monitoring':{'monitoring_incidents','projects','tasks'},'monitoring_operations':{'monitoring_incidents','projects','tasks','customers'},'agent_builder':{'agent_builds','agents','projects','tasks','customers'},'voice_avatar':{'voice_profiles','avatar_profiles','voice_sessions','avatar_jobs','media_assets','speech_models','voice_models'}}
 PERMISSION_POLICY={'standard_sale': {'mode':'auto','allowed_actors':['ai','staff','owner']},'approved_catalog_order': {'mode':'auto','allowed_actors':['ai','staff','owner']},'normal_invoice': {'mode':'auto','allowed_actors':['ai','staff','owner']},'customer_followup': {'mode':'auto','allowed_actors':['ai','staff','owner']},'draft_contract': {'mode':'auto','allowed_actors':['ai','staff','owner']},'receive_customer_payment': {'mode':'auto','allowed_actors':['ai','staff','owner']},'bank_withdrawal': {'mode':'owner','allowed_actors':['owner']},'bank_transfer': {'mode':'owner','allowed_actors':['owner']},'binding_contract': {'mode':'owner','allowed_actors':['owner']},'exceptional_financial_commitment': {'mode':'owner','allowed_actors':['owner']},'loan': {'mode':'owner','allowed_actors':['owner']},'settlement': {'mode':'owner','allowed_actors':['owner']},'penalty': {'mode':'owner','allowed_actors':['owner']},'exceptional_discount': {'mode':'owner','allowed_actors':['owner']}}
