@@ -192,7 +192,7 @@ def _gemini_reply(message: str, language: str, channel: str, history: list[Any])
     contents.append({"role":"user","parts":[{"text":message}]})
     payload={"systemInstruction":{"parts":[{"text":system}]},"contents":contents}
     url=f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-    req=urllib.request.Request(url,data=json.dumps(payload).encode("utf-8"),method="POST",headers={"x-goog-api-key":api_key,"Content-Type":"application/json"})
+    req=urllib.request.Request(url,data=json.dumps(payload).encode("utf-8"),method="POST",headers={"x-goog-api-key":api_key,"Content-Type":"application/json","Api-Revision":"2026-05-20"})
     try:
         with urllib.request.urlopen(req,timeout=30) as response: data=json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
@@ -211,7 +211,7 @@ def sales_speech(agent_id: int, payload: SpeechIn):
     api_key=os.getenv("GEMINI_API_KEY","").strip()
     if not api_key: raise HTTPException(status_code=503, detail="Gemini AI service is not configured: GEMINI_API_KEY is missing.")
     language=_detect_language(payload.text, payload.language)
-    model=os.getenv("GEMINI_TTS_MODEL","gemini-2.5-flash-preview-tts").strip() or "gemini-2.5-flash-preview-tts"
+    model=os.getenv("GEMINI_TTS_MODEL","gemini-3.1-flash-tts-preview").strip() or "gemini-3.1-flash-tts-preview"
     voice=os.getenv("GEMINI_TTS_VOICE","Aoede").strip() or "Aoede"
     if language=="ar":
         prompt=("Speak this reply as Layan, a warm professional female assistant in natural Levantine/Shami Arabic. "
