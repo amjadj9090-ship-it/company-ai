@@ -179,6 +179,7 @@ def _gemini_reply(message: str, language: str, channel: str, history: list[Any])
             "Do not mix Levantine with Modern Standard Arabic. Do not insert formal MSA phrases into a Shami reply unless the user explicitly uses MSA or asks for it. "
             "Likewise, do not mix Gulf, Egyptian, Iraqi, Maghrebi, or other Arabic dialects. If the user speaks MSA, answer in MSA; if the user speaks another language, answer fully in that language. "
             "Keep grammar, vocabulary, sentence flow, and conversational tone consistent from start to finish. Avoid canned, translated-sounding, robotic phrasing. "
+            "VOICE-READY STYLE: write the reply as natural spoken conversation, not formal written prose. Keep it concise by default to reduce unnecessary token/audio usage. For Arabic, do not use tashkeel/diacritics, avoid stiff MSA constructions, and prefer ordinary everyday wording a person would actually say aloud. Do not use formal self-introductions such as 'أنا مساعدة الشركة' unless the user asks for formal language. Use short, easy-to-speak sentences. "
             "Never claim money transfer, withdrawal, payment, contract signing, or protected commitment was completed without owner approval. "
             "For protected requests, explain approval is required and offer a draft/next step. "
             f"Detected language: {language}. Channel: {channel}.")
