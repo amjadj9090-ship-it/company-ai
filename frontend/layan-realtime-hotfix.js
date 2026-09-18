@@ -4,7 +4,7 @@
  */
 (function(){
 'use strict';
-const VERSION='20260919-04';
+const VERSION='20260919-05';
 const state={recognition:null,running:false,busy:false,history:[],speaking:false};
 window.LayanVoiceBridge={mode:'browser-live-gemini-multilingual',version:VERSION};
 const stage=()=>document.getElementById('layanVoiceStage');
@@ -59,7 +59,7 @@ function startRecognition(){
  if(!SR){setState('الصوت غير مدعوم','استخدم متصفحاً يدعم الميكروفون والتعرف على الكلام.');return false}
  const r=new SR();state.recognition=r;
  const lang=language();r.lang=lang==='zh'?'zh-CN':lang==='pt'?'pt-BR':lang==='en'?'en-US':lang==='fr'?'fr-FR':lang==='de'?'de-DE':lang==='es'?'es-ES':lang==='it'?'it-IT':lang==='ja'?'ja-JP':lang==='ko'?'ko-KR':lang==='ru'?'ru-RU':lang==='tr'?'tr-TR':lang==='nl'?'nl-NL':'ar-SA';
- r.interimResults=true;r.continuous=false;r.maxAlternatives=1;
+ r.interimResults=true;r.continuous=true;r.maxAlternatives=1;
  let heard='';
  r.onstart=()=>{setMode('listening');setState('ليان تستمع إليك…','احكي بلغتك وبلهجتك بشكل طبيعي.');};
  r.onresult=e=>{
@@ -68,7 +68,7 @@ function startRecognition(){
    const shown=(heard+' '+interim).trim();if(shown)text('layanVoiceText',shown);
  };
  r.onerror=e=>{state.recognition=null;if(e.error==='not-allowed'){setState('الميكروفون غير مسموح','اسمح بالميكروفون ثم جرّب مرة ثانية.');return}if(state.running&&!state.busy)setTimeout(startRecognition,500)};
- r.onend=()=>{state.recognition=null;if(heard.trim()){askGemini(heard.trim(),lang)}else if(state.running&&!state.busy)setTimeout(startRecognition,300)};
+ r.onend=()=>{state.recognition=null;if(heard.trim()){const finalText=heard.trim();heard='';setState('ليان تنتظر أن تنهي كلامك…','كمّل براحتك. لن أرسل الكلام قبل ما تتوقف قليلاً.');setTimeout(()=>{if(state.running&&!state.busy&&!state.speaking)askGemini(finalText,lang)},1800)}else if(state.running&&!state.busy)setTimeout(startRecognition,300)};
  try{r.start();return true}catch(_){state.recognition=null;return false}
 }
 async function start(){
