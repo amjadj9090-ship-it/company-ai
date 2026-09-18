@@ -67,11 +67,13 @@ async def create_layan_realtime_call(request: Request) -> Response:
     # application/sdp request body. The browser applies the session settings
     # over the oai-events data channel immediately after the answer arrives.
     # Avoid multipart encoding here so the SDP reaches the provider byte-for-byte.
+    headers = _provider_headers(api_key)
+    headers.update({"Accept": "application/sdp", "Content-Type": "application/sdp"})
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 f"{OPENAI_REALTIME_CALLS_URL}?model={REALTIME_MODEL}",
-                headers=(lambda h: (h.update({"Accept": "application/sdp", "Content-Type": "application/sdp"}) or h))(_provider_headers(api_key)),
+                headers=headers,
                 content=raw_body,
             )
     except httpx.HTTPError as exc:
