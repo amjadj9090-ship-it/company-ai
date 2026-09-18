@@ -26,7 +26,23 @@ def test_production_rejects_default_or_missing_secret_material(tmp_path):
     })
     result = _import_main(env)
     assert result.returncode != 0
-    assert "DEMO_ADMIN_PASSWORD" in result.stderr
+    assert "Production DATABASE_URL must point to PostgreSQL" in result.stderr
+
+
+def test_production_rejects_sqlite_even_with_valid_credentials(tmp_path):
+    env = os.environ.copy()
+    env.update({
+        "PYTHONPATH": str(ROOT),
+        "ENVIRONMENT": "production",
+        "DATABASE_URL": f"sqlite:///{tmp_path / 'reject-sqlite.db'}",
+        "JWT_SECRET": "x" * 32,
+        "PASSWORD_PEPPER": "safe-pepper-value-123456",
+        "DEMO_ADMIN_PASSWORD": "safe-admin-password-123",
+        "COMPANY_OWNER_EMAIL": "owner@company-ai.example",
+    })
+    result = _import_main(env)
+    assert result.returncode != 0
+    assert "Production DATABASE_URL must point to PostgreSQL" in result.stderr
 
 
 def test_production_starts_with_explicit_secret_material(tmp_path):
