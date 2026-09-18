@@ -18,6 +18,11 @@ class BrainDecision:
     required_approval: bool
     next_actions: tuple[str, ...]
 
+    @property
+    def requires_owner_approval(self) -> bool:
+        """Backward-compatible alias used by older CRM integrations."""
+        return self.required_approval
+
 
 class BrainRequest(BaseModel):
     message: str = Field(min_length=1, max_length=12000)
@@ -121,6 +126,111 @@ def plan(message: str, context: dict[str, Any] | None = None) -> BrainDecision:
         actions = ("clarify_intent", "route_to_specialist", "record_decision")
 
     return BrainDecision(department, intent, priority, approval_mode, required_approval, actions)
+
+
+def _persist_orchestration(request: BrainRequest, decision: BrainDecision) -> dict[str, Any]:
+    """Persist a Central AI decision/task without executing protected operations."""
+    try:
+        from .main import Entity, Approval, Audit, engine, now
+        from sqlalchemy.orm import Session
+        with Session(engine) as db:
+            timestamp = now()
+            plan_entity = Entity(
+                kind="central_plan",
+                data={
+                    "message": request.message,
+                    "language": request.language or "auto",
+                    "channel": request.channel,
+                    "context": request.context,
+                    "department": decision.department,
+                    "intent": decision.intent,
+                    "priority": decision.priority,
+                    "approval_required": decision.required_approval,
+                    "status": "awaiting_owner_approval" if decision.required_approval else "planned",
+                },
+                created_at=timestamp,
+                updated_at=timestamp,
+            )
+            db.add(plan_entity)
+            db.flush()
+            task = Entity(
+                kind="central_task",
+                data={
+                    "plan_id": plan_entity.id,
+                    "department": decision.department,
+                    "actions": list(decision.next_actions),
+                    "status": "blocked_pending_owner" if decision.required_approval else "ready",
+                },
+                created_at=timestamp,
+                updated_at=timestamp,
+            )
+            db.add(task)
+            db.flush()
+            decision_entity = Entity(
+                kind="central_decision",
+                data={
+                    "plan_id": plan_entity.id,
+                    "task_id": task.id,
+                    "department": decision.department,
+                    "intent": decision.intent,
+                    "approval_mode": decision.approval_mode,
+                    "required_approval": decision.required_approval,
+                    "actions": list(decision.next_actions),
+                },
+                created_at=timestamp,
+                updated_at=timestamp,
+            )
+            db.add(decision_entity)
+            db.flush()
+            if decision.required_approval:
+                db.add(Approval(
+                    action="central_ai_approval",
+                    entity_type="central_plan",
+                    entity_id=plan_entity.id,
+                    reason="Protected operation requires owner approval before execution.",
+                    status="pending",
+                    requested_by=f"central-ai:{request.channel}",
+                    created_at=timestamp,
+                    updated_at=timestamp,
+                ))
+            db.add(Audit(
+                actor=f"central-ai:{request.channel}",
+                action="plan_created",
+                entity="central_plan",
+                entity_id=plan_entity.id,
+                details={"department": decision.department, "intent": decision.intent},
+                created_at=timestamp,
+            ))
+            db.commit()
+            return {"plan_id": plan_entity.id, "task_id": task.id, "decision_id": decision_entity.id}
+    except Exception:
+        return {"plan_id": None, "task_id": None, "decision_id": None}
+
+
+@router.post("/api/central-ai/intake", response_model=BrainResponse)
+def central_ai_intake(request: BrainRequest) -> BrainResponse:
+    decision = plan(request.message, request.context)
+    ids = _persist_orchestration(request, decision)
+    return BrainResponse(
+        status="ok",
+        decision={
+            "department": decision.department,
+            "intent": decision.intent,
+            "priority": decision.priority,
+            "approval_mode": decision.approval_mode,
+            "required_approval": decision.required_approval,
+            "next_actions": list(decision.next_actions),
+            "channel": request.channel,
+            "language": request.language or "auto",
+            **ids,
+        },
+        guardrails={
+            "owner_approval_required_for_sensitive_commitments": True,
+            "money_movement_allowed_without_owner": False,
+            "contract_signing_allowed_without_owner": False,
+            "execution": "plan_only_until_specialist_executor_is_authorized",
+        },
+    )
 
 
 @router.post("/api/brain/plan", response_model=BrainResponse)
