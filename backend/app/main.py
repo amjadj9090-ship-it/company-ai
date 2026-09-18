@@ -137,6 +137,49 @@ class AvatarProfileIn(BaseModel): name:str=Field(min_length=2,max_length=160); v
 class VoiceSessionIn(BaseModel): avatar_id:int; language:str='ar'; channel:str='website'; mode:str='duplex'; user_id:Optional[int]=None
 class AvatarJobIn(BaseModel): avatar_id:int; job_type:str='lip_sync'; text:Optional[str]=None; audio_asset_id:Optional[int]=None; priority:str='normal'
 class SpeechModelIn(BaseModel): name:str; model_type:str; languages:list[str]=Field(default_factory=lambda:['ar']); local:bool=True; status:str='planned'; notes:Optional[str]=None
+
+class SalesConversationIn(BaseModel):
+    message: str = Field(min_length=1, max_length=8000)
+    language: Optional[str] = 'auto'
+    history: list[dict] = Field(default_factory=list, max_length=12)
+
+def _layan_local_reply(message: str, language: str = 'auto') -> str:
+    t = message.strip().lower()
+    if any(k in t for k in ('تحويل', 'دفع', 'سحب', 'بنك', 'مبلغ مالي', 'transfer', 'withdraw', 'bank', 'payment')):
+        return 'فهمت طلبك. هذا يتعلق بعملية مالية، لذلك أقدر أوضح لك الخطوات وأجهّز الطلب، لكن أي تحويل أو التزام مالي يحتاج موافقة صاحب الشركة قبل التنفيذ.'
+    if any(k in t for k in ('موقع', 'website', 'web', 'موقع إلكتروني')):
+        return 'أكيد. فينا نحدد هدف الموقع، الصفحات المطلوبة، اللغة، وربطه بالتسويق وطلبات العملاء. إذا بتخبرني شو نوع الموقع والهدف منه، بجهز لك التصور المناسب.'
+    if any(k in t for k in ('تطبيق', 'ابلكيشن', 'app', 'application', 'mobile')):
+        return 'تمام. فينا نحدد فكرة التطبيق، المستخدمين، أهم الوظائف، والمنصات المطلوبة، وبعدها نرتب نطاق العمل والتكلفة التقديرية.'
+    if any(k in t for k in ('تسويق', 'إعلان', 'حملة', 'marketing', 'campaign', 'seo')):
+        return 'ممتاز. فينا نبدأ بتحديد المنتج والسوق والهدف، وبعدها نجهز خطة تسويق ومحتوى وقنوات وصول للعملاء ونقيس النتائج.'
+    if any(k in t for k in ('عميل', 'زبون', 'شركة', 'customer', 'client', 'lead')):
+        return 'أكيد. فيني أساعدك بتأهيل العميل وفهم حاجته وتحديد الخدمة المناسبة، وبعدها تسجيل المتابعة ضمن نظام العملاء.'
+    if any(k in t for k in ('مشروع', 'فكرة', 'جدوى', 'business', 'startup')):
+        return 'خلينا نفهم الفكرة أولاً: شو المنتج أو الخدمة، مين العميل المستهدف، بأي سوق، وشو الهدف من المشروع؟ بعدها بقدر أرتب لك الخطوات العملية.'
+    if any(k in t for k in ('سعر', 'تكلفة', 'price', 'cost', 'quote')):
+        return 'بقدر أساعدك بتحديد نطاق العمل وتجهيز عرض مناسب، لكن السعر يعتمد على المطلوب تحديداً. احكيلي شو الخدمة أو المشروع وحجمه والنتيجة اللي بدك توصل إلها.'
+    if any(k in t for k in ('مرحبا', 'اهلا', 'أهلا', 'hello', 'hi')):
+        return 'أهلا وسهلا! أنا ليان من Company AI. احكيلي شو بدك تعمل، وأنا بساعدك خطوة بخطوة.'
+    return 'فهمت عليك. احكيلي شوي أكثر عن المطلوب والنتيجة اللي بدك توصل إلها، وأنا بوجّهك للخطوة المناسبة.'
+
+@app.get('/api/sales-agent/public/config')
+def public_sales_config(s: Session = Depends(db)):
+    row = s.scalar(select(Entity).where(Entity.kind == 'agent_builds', Entity.data['slug'].as_string() == 'public-sales-ai'))
+    if not row:
+        raise HTTPException(status_code=404, detail='Public sales agent is not configured')
+    return {'build_id': str(row.id), 'slug': 'public-sales-ai', 'name': row.data.get('name', 'Company AI Sales Employee'), 'status': row.data.get('status', 'active')}
+
+@app.post('/api/sales-agent/{agent_id}/conversation')
+def public_sales_conversation(agent_id: str, x: SalesConversationIn, s: Session = Depends(db)):
+    row = s.get(Entity, int(agent_id)) if agent_id.isdigit() else s.scalar(select(Entity).where(Entity.kind == 'agent_builds', Entity.data['slug'].as_string() == agent_id))
+    if not row or row.kind != 'agent_builds' or row.data.get('slug') != 'public-sales-ai':
+        raise HTTPException(status_code=404, detail='Sales agent not found')
+    reply = _layan_local_reply(x.message, x.language or 'auto')
+    s.add(Audit(actor='layan-public', action='conversation_message', entity='agent_builds', entity_id=row.id, details={'message': x.message[:1000], 'language': x.language or 'auto', 'reply': reply[:2000]}, created_at=now()))
+    s.commit()
+    return {'reply': reply, 'agent_id': str(row.id), 'language': x.language or 'auto', 'source': 'company-ai-contextual-fallback'}
+
 ROLE_OK={'admin':{'*'},'sales':{'customers','projects','tasks','quotes','orders','tickets','leads','proposals','products'},'finance':{'invoices','orders','customers'},'trade':{'suppliers','products','orders','quotes'},'marketing':{'customers','projects','tasks','quotes','leads','campaigns','content'},'support':{'customers','tickets'},'growth':{'leads','campaigns','partners','content'},'entrepreneurship':{'feasibility_studies','projects','tasks','customers'},'website_growth':{'website_assessments','projects','tasks','customers'},'cybersecurity':{'security_assessments','security_incidents','projects','tasks'},'monitoring':{'monitoring_incidents','projects','tasks'},'monitoring_operations':{'monitoring_incidents','projects','tasks','customers'},'agent_builder':{'agent_builds','agents','projects','tasks','customers'},'voice_avatar':{'voice_profiles','avatar_profiles','voice_sessions','avatar_jobs','media_assets','speech_models','voice_models'}}
 PERMISSION_POLICY={'standard_sale': {'mode':'auto','allowed_actors':['ai','staff','owner']},'approved_catalog_order': {'mode':'auto','allowed_actors':['ai','staff','owner']},'normal_invoice': {'mode':'auto','allowed_actors':['ai','staff','owner']},'customer_followup': {'mode':'auto','allowed_actors':['ai','staff','owner']},'draft_contract': {'mode':'auto','allowed_actors':['ai','staff','owner']},'receive_customer_payment': {'mode':'auto','allowed_actors':['ai','staff','owner']},'bank_withdrawal': {'mode':'owner','allowed_actors':['owner']},'bank_transfer': {'mode':'owner','allowed_actors':['owner']},'binding_contract': {'mode':'owner','allowed_actors':['owner']},'exceptional_financial_commitment': {'mode':'owner','allowed_actors':['owner']},'loan': {'mode':'owner','allowed_actors':['owner']},'settlement': {'mode':'owner','allowed_actors':['owner']},'penalty': {'mode':'owner','allowed_actors':['owner']},'exceptional_discount': {'mode':'owner','allowed_actors':['owner']}}
 def actor_type(u): return 'owner' if u.email.lower()==COMPANY_OWNER_EMAIL else ('ai' if str(u.role).lower() in {'ai','agent','central_ai'} else 'staff')
