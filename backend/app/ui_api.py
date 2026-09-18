@@ -7,6 +7,9 @@ import os
 import re
 import urllib.error
 import urllib.request
+import base64
+import io
+import wave
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -61,7 +64,11 @@ class Conversation(BaseModel):
     assistant: str = "layan"
     history: list[dict[str, Any]] = Field(default_factory=list)
 
-class Qualification(BaseModel):
+
+class SpeechIn(BaseModel):
+    text: str = Field(min_length=1, max_length=12000)
+    language: str = "auto"
+\nclass Qualification(BaseModel):
     lead_id: int
     message: str = Field(min_length=1, max_length=8000)
     budget: str | None = None
@@ -194,6 +201,48 @@ def _gemini_reply(message: str, language: str, channel: str, history: list[Any])
     reply="".join(str(p.get("text","")) for p in parts if isinstance(p,dict)).strip()
     if not reply: raise HTTPException(status_code=502,detail="Gemini returned an empty response.")
     return reply
+
+
+@router.post("/api/sales-agent/{agent_id}/speech")
+def sales_speech(agent_id: int, payload: SpeechIn):
+    _get("agent_builds", agent_id)
+    api_key=os.getenv("GEMINI_API_KEY","").strip()
+    if not api_key: raise HTTPException(status_code=503, detail="Gemini AI service is not configured: GEMINI_API_KEY is missing.")
+    language=_detect_language(payload.text, payload.language)
+    model=os.getenv("GEMINI_TTS_MODEL","gemini-2.5-flash-preview-tts").strip() or "gemini-2.5-flash-preview-tts"
+    voice=os.getenv("GEMINI_TTS_VOICE","Aoede").strip() or "Aoede"
+    if language=="ar":
+        prompt=("Speak this reply as Layan, a warm professional female assistant in natural Levantine/Shami Arabic. "
+                "Keep the spoken Arabic conversational and locally natural, without switching into Modern Standard Arabic. "
+                "Use a calm, confident, human office-conversation pace. Do not read instructions aloud.\n\n")
+    else:
+        prompt=("Speak this reply as Layan, a warm professional female assistant. Match the language of the text exactly, "
+                "with a natural conversational office tone, clear pacing, and no robotic or announcer style. Do not read instructions aloud.\n\n")
+    request_payload={
+        "model":model,
+        "input":prompt+payload.text.strip(),
+        "response_format":{"type":"audio"},
+        "generation_config":{"speech_config":[{"voice":voice}]},
+    }
+    url="https://generativelanguage.googleapis.com/v1beta/interactions"
+    req=urllib.request.Request(url,data=json.dumps(request_payload).encode("utf-8"),method="POST",headers={"x-goog-api-key":api_key,"Content-Type":"application/json"})
+    try:
+        with urllib.request.urlopen(req,timeout=30) as response: data=json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        raise HTTPException(status_code=502,detail=f"Gemini TTS provider error: HTTP {exc.code}") from exc
+    except (urllib.error.URLError, TimeoutError) as exc:
+        raise HTTPException(status_code=504,detail="Gemini TTS provider timeout.") from exc
+    raw=((data.get("output_audio") or {}).get("data") or "").strip()
+    if not raw: raise HTTPException(status_code=502,detail="Gemini TTS returned no audio.")
+    try:
+        pcm=base64.b64decode(raw)
+        buf=io.BytesIO()
+        with wave.open(buf,"wb") as wf:
+            wf.setnchannels(1); wf.setsampwidth(2); wf.setframerate(24000); wf.writeframes(pcm)
+        audio_b64=base64.b64encode(buf.getvalue()).decode("ascii")
+    except Exception as exc:
+        raise HTTPException(status_code=502,detail="Gemini TTS audio format was invalid.") from exc
+    return {"status":"ok","language":language,"engine":"gemini-tts","model":model,"voice":voice,"audio_base64":audio_b64}
 
 @router.post("/api/sales-agent/{agent_id}/qualify")
 def qualify(agent_id:int,payload:Qualification):
