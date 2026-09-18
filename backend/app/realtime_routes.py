@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -58,9 +59,19 @@ async def create_layan_realtime_call(request: Request) -> Response:
     if not api_key:
         raise HTTPException(status_code=503, detail="Voice service is not configured: OPENAI_API_KEY is missing on the server.")
 
-    sdp = (await request.body()).decode("utf-8", errors="replace").strip()
+    raw_body = await request.body()
+    content_type = request.headers.get("content-type", "")
+    body_sha256 = hashlib.sha256(raw_body).hexdigest()[:16]
+    LOGGER.info("Layan WebRTC offer received: bytes=%s content_type=%s sha256=%s", len(raw_body), content_type, body_sha256)
+    sdp = raw_body.decode("utf-8", errors="replace").strip()
     if not sdp:
+        LOGGER.warning("Layan WebRTC offer is empty after decoding")
         raise HTTPException(status_code=400, detail="Missing WebRTC SDP offer.")
+
+    first_line = sdp.splitlines()[0][:80] if sdp.splitlines() else ""
+    stripped_sdp = sdp.rstrip("\r\n")
+    last_line = stripped_sdp.splitlines()[-1][:80] if stripped_sdp.splitlines() else ""
+    LOGGER.info("Layan WebRTC SDP shape: chars=%s first=%r last=%r", len(sdp), first_line, last_line)
 
     # Use OpenAI's official SDK for the WebRTC call handshake. Its generated
     # Realtime calls client encodes SDP as a multipart form field with
