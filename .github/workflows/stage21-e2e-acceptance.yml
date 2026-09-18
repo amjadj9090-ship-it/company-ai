@@ -62,6 +62,8 @@ jobs:
             if(await realtimeOverlay.count()){
               if(!(await page.locator('#lhStatus').count())) throw new Error('realtime voice status missing');
               if(!(await page.locator('#lhEnd').count())) throw new Error('realtime voice end control missing');
+              await page.waitForFunction(() => { const el=document.querySelector('#lhStatus'); return el && /لايف|محادثة مستمرة|اتصال بليان/.test(el.textContent||''); }, {timeout:15000});
+              console.log(`REALTIME_HANDSHAKE_STATUS=${await page.locator('#lhStatus').textContent()}`);
               await page.locator('#lhClose').evaluate(el=>el.click());
               await realtimeOverlay.waitFor({state:'hidden',timeout:5000}).catch(()=>{});
               if(await page.locator('#layanRealtimeHotfix.open').count()) throw new Error('realtime voice overlay did not close');
