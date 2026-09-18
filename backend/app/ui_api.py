@@ -68,7 +68,8 @@ class Conversation(BaseModel):
 class SpeechIn(BaseModel):
     text: str = Field(min_length=1, max_length=12000)
     language: str = "auto"
-\nclass Qualification(BaseModel):
+
+class Qualification(BaseModel):
     lead_id: int
     message: str = Field(min_length=1, max_length=8000)
     budget: str | None = None
