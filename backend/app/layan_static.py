@@ -1,4 +1,5 @@
 from pathlib import Path
+import base64
 
 from fastapi import APIRouter
 from fastapi.responses import FileResponse, Response
@@ -63,4 +64,9 @@ def layan_realtime_hotfix():
 
 @router.get("/assets/layan-office.webp", include_in_schema=False)
 def layan_office_asset():
-    return Response(content=_LAYAN_FALLBACK_SVG, media_type="image/svg+xml")
+    """Serve the approved repository WebP asset instead of the legacy fallback."""
+    try:
+        raw = (_FRONTEND.parent / "assets" / "layan-office.webp.txt").read_text(encoding="utf-8").strip()
+        return Response(content=base64.b64decode(raw), media_type="image/webp", headers={"Cache-Control":"no-store, no-cache, must-revalidate, max-age=0","Pragma":"no-cache"})
+    except Exception:
+        return Response(content=_LAYAN_FALLBACK_SVG, media_type="image/svg+xml")
