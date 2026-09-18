@@ -85,10 +85,10 @@ async def create_layan_realtime_call(request: Request) -> Response:
             max_retries=0,
             default_headers={"OpenAI-Safety-Identifier": "company-ai-public"},
         )
-        response = await client.realtime.calls.create(
-            sdp=sdp,
-            session=_realtime_session(),
-        )
+        # Session configuration is applied immediately over the WebRTC data
+        # channel by the browser. Keep the initial provider handshake minimal:
+        # the SDP offer is the only required field.
+        response = await client.realtime.calls.create(sdp=sdp)
     except Exception as exc:
         LOGGER.exception("Layan realtime provider request failed")
         if hasattr(exc, "status_code") and getattr(exc, "status_code", None):
