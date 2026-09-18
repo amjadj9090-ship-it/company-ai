@@ -71,3 +71,29 @@ def test_layan_office_asset_is_served_as_webp():
     assert response.media_type == 'image/webp'
     assert response.body.startswith(b'RIFF')
     assert response.body[8:12] == b'WEBP'
+
+
+def test_layan_frontend_uses_single_canonical_voice_script_and_approved_asset():
+    from pathlib import Path
+    frontend = Path(__file__).resolve().parents[1].parent / 'frontend' / 'index.html'
+    html = frontend.read_text(encoding='utf-8')
+    assert html.count('id="layanVoiceStage"') == 1
+    assert '/assets/layan-office.webp?v=20260919-02' in html
+    assert 'layan-realtime-hotfix.js?v=20260919-02' in html
+
+def test_layan_voice_bridge_is_canonical_webrtc_path():
+    from pathlib import Path
+    bridge = Path(__file__).resolve().parents[1].parent / 'frontend' / 'layan-realtime-hotfix.js'
+    source = bridge.read_text(encoding='utf-8')
+    assert '/api/voice-avatar/realtime-call' in source
+    assert 'application/sdp' in source
+    assert 'RTCPeerConnection' in source
+    assert 'SpeechRecognition' not in source
+    assert 'speechSynthesis' not in source
+
+def test_layan_office_asset_is_served_as_webp():
+    from app.layan_static import layan_office_asset
+    response = layan_office_asset()
+    assert response.media_type == 'image/webp'
+    assert response.body.startswith(b'RIFF')
+    assert response.body[8:12] == b'WEBP'
