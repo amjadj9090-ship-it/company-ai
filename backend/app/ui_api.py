@@ -162,7 +162,7 @@ def _detect_language(message: str, requested: str | None) -> str:
 def _gemini_reply(message: str, language: str, channel: str, history: list[Any]) -> str:
     api_key=os.getenv("GEMINI_API_KEY","").strip()
     if not api_key: raise HTTPException(status_code=503, detail="Gemini AI service is not configured: GEMINI_API_KEY is missing.")
-    model=os.getenv("GEMINI_MODEL","gemini-2.5-flash-lite").strip() or "gemini-2.5-flash-lite"
+    model=os.getenv("GEMINI_MODEL","gemini-3.5-flash-lite").strip() or "gemini-2.5-flash-lite"
     system=("You are Layan, the central AI assistant for Company AI. Understand actual intent and context. "
             "Always answer in the user language and natural dialect/register. Never force Arabic or one dialect. "
             "Be conversational, human-like, concise but useful. Preserve context. "
@@ -176,7 +176,7 @@ def _gemini_reply(message: str, language: str, channel: str, history: list[Any])
         txt=str(item.get("text") or item.get("content") or "").strip()
         if txt: contents.append({"role":role,"parts":[{"text":txt[:8000]}]})
     contents.append({"role":"user","parts":[{"text":message}]})
-    payload={"systemInstruction":{"parts":[{"text":system}]},"contents":contents,"generationConfig":{"temperature":0.7}}
+    payload={"systemInstruction":{"parts":[{"text":system}]},"contents":contents}
     url=f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
     req=urllib.request.Request(url,data=json.dumps(payload).encode("utf-8"),method="POST",headers={"x-goog-api-key":api_key,"Content-Type":"application/json"})
     try:
