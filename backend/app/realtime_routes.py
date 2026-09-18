@@ -9,6 +9,8 @@ from fastapi import APIRouter, FastAPI, HTTPException, Request, Response, Depend
 from starlette.responses import FileResponse
 
 router = APIRouter()
+from .central_brain import router as central_ai_router
+router.include_router(central_ai_router)
 LOGGER = logging.getLogger("company_ai.realtime")
 
 REALTIME_MODEL = "gpt-realtime-2.1"
