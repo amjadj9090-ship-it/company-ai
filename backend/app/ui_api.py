@@ -2,6 +2,11 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Any
+import json
+import os
+import re
+import urllib.error
+import urllib.request
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -53,7 +58,8 @@ class Conversation(BaseModel):
     email: str | None = None
     language: str = "auto"
     channel: str = "website"
-    assistant: str = "sales"
+    assistant: str = "layan"
+    history: list[dict[str, Any]] = Field(default_factory=list)
 
 class Qualification(BaseModel):
     lead_id: int
@@ -128,22 +134,61 @@ def sales_operations(agent_id: int):
 
 @router.post("/api/sales-agent/{agent_id}/conversation")
 def sales_conversation(agent_id:int,payload:Conversation):
-    _get("agent_builds",agent_id); message=payload.message.strip(); text=message.lower()
-    if any(x in text for x in ("سحب","تحويل","عقد","توقيع","خصم استثنائي","bank","transfer","contract","withdraw")):
-        reply="هذا الطلب يحتاج مراجعة وموافقة المالك قبل أي التزام حساس. أستطيع تجهيز المسودة والخطوة التالية دون تنفيذ الالتزام."
-    elif any(x in text for x in ("موقع","website","web")):
-        reply="ممتاز. نحدد هدف الموقع والجمهور والصفحات والوظائف، ثم نختار باقة مناسبة ونجهز العرض."
-    elif any(x in text for x in ("تطبيق","app","application")):
-        reply="ممتاز. نحدد فكرة التطبيق والمستخدمين والوظائف الأساسية، ثم ننتقل إلى UX/UI والتطوير والاختبار."
-    else: reply="فهمت طلبك. دعنا نحدد الهدف، الخدمة المطلوبة والموعد والميزانية التقريبية حتى أجهز لك المسار المناسب."
+    _get("agent_builds",agent_id)
+    message=payload.message.strip()
+    language=_detect_language(message, payload.language)
+    reply=_gemini_reply(message, language, payload.channel, payload.history[-10:])
     lead=None
     if payload.email:
         try:
             main=_main()
             with main.Session(main.engine) as s:
-                lead=main.Entity(kind="crm_lead",data={"name":"Website visitor","email":payload.email,"source":"website-sales-agent","service":None,"stage":"new","owner":"sales","message":message},created_at=_now(),updated_at=_now()); s.add(lead); s.commit(); s.refresh(lead); lead={"id":lead.id,**lead.data}
+                lead=main.Entity(kind="crm_lead",data={"name":"Website visitor","email":payload.email,"source":"website-sales-agent","service":None,"stage":"new","owner":"sales","message":message},created_at=_now(),updated_at=_now())
+                s.add(lead); s.commit(); s.refresh(lead); lead={"id":lead.id,**lead.data}
         except Exception: lead=None
-    return {"status":"ok","reply":reply,"language":payload.language,"lead":lead,"recommendations":[{"name":"Website Starter"},{"name":"Website Pro"},{"name":"Business App"}]}
+    return {"status":"ok","reply":reply,"language":language,"engine":"gemini","lead":lead,"recommendations":[{"name":"Website Starter"},{"name":"Website Pro"},{"name":"Business App"}]}
+
+def _detect_language(message: str, requested: str | None) -> str:
+    requested=(requested or "").strip().lower()
+    if requested and requested not in {"auto","null","undefined"}: return requested.split("-")[0]
+    if re.search(r"[\\u0600-\\u06ff]", message): return "ar"
+    if re.search(r"[\\u3040-\\u30ff]", message): return "ja"
+    if re.search(r"[\\uac00-\\ud7af]", message): return "ko"
+    if re.search(r"[\\u4e00-\\u9fff]", message): return "zh"
+    if re.search(r"[\\u0400-\\u04ff]", message): return "ru"
+    if re.search(r"[\\u00c0-\\u024f]", message): return "fr"
+    return "en"
+
+def _gemini_reply(message: str, language: str, channel: str, history: list[Any]) -> str:
+    api_key=os.getenv("GEMINI_API_KEY","").strip()
+    if not api_key: raise HTTPException(status_code=503, detail="Gemini AI service is not configured: GEMINI_API_KEY is missing.")
+    model=os.getenv("GEMINI_MODEL","gemini-2.5-flash-lite").strip() or "gemini-2.5-flash-lite"
+    system=("You are Layan, the central AI assistant for Company AI. Understand actual intent and context. "
+            "Always answer in the user language and natural dialect/register. Never force Arabic or one dialect. "
+            "Be conversational, human-like, concise but useful. Preserve context. "
+            "Never claim money transfer, withdrawal, payment, contract signing, or protected commitment was completed without owner approval. "
+            "For protected requests, explain approval is required and offer a draft/next step. "
+            f"Detected language: {language}. Channel: {channel}.")
+    contents=[]
+    for item in history:
+        if not isinstance(item,dict): continue
+        role="model" if item.get("role") in {"assistant","model"} else "user"
+        txt=str(item.get("text") or item.get("content") or "").strip()
+        if txt: contents.append({"role":role,"parts":[{"text":txt[:8000]}]})
+    contents.append({"role":"user","parts":[{"text":message}]})
+    payload={"systemInstruction":{"parts":[{"text":system}]},"contents":contents,"generationConfig":{"temperature":0.7}}
+    url=f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+    req=urllib.request.Request(url,data=json.dumps(payload).encode("utf-8"),method="POST",headers={"x-goog-api-key":api_key,"Content-Type":"application/json"})
+    try:
+        with urllib.request.urlopen(req,timeout=30) as response: data=json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        raise HTTPException(status_code=502,detail=f"Gemini provider error: HTTP {exc.code}") from exc
+    except (urllib.error.URLError, TimeoutError) as exc:
+        raise HTTPException(status_code=504,detail="Gemini provider timeout.") from exc
+    parts=((data.get("candidates") or [{}])[0].get("content") or {}).get("parts") or []
+    reply="".join(str(p.get("text","")) for p in parts if isinstance(p,dict)).strip()
+    if not reply: raise HTTPException(status_code=502,detail="Gemini returned an empty response.")
+    return reply
 
 @router.post("/api/sales-agent/{agent_id}/qualify")
 def qualify(agent_id:int,payload:Qualification):
