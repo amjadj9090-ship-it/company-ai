@@ -1,8 +1,9 @@
 services:
   - type: web
-    name: company-ai-free-beta
+    name: company-ai
     runtime: python
     plan: free
+    region: frankfurt
     buildCommand: pip install -r backend/requirements.txt
     startCommand: uvicorn backend.app.realtime_entry:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'
     healthCheckPath: /healthz
@@ -22,7 +23,9 @@ services:
       - key: PASSWORD_PEPPER
         generateValue: true
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: company-ai-db
+          property: connectionString
       - key: DEMO_ADMIN_PASSWORD
         sync: false
       - key: PUBLIC_RATE_LIMIT
