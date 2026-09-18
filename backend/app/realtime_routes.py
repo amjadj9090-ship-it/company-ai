@@ -45,8 +45,6 @@ def _provider_error(exc: httpx.HTTPError) -> HTTPException:
 
 @router.get("/admin.html", include_in_schema=False)
 def admin_page():
-    # The test environment must not expose the admin entry page; production
-    # keeps the HTML shell public while all business data remains protected.
     if os.getenv("ENVIRONMENT") == "test":
         raise HTTPException(status_code=404, detail="Not found")
     frontend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend"))
@@ -74,6 +72,9 @@ async def create_layan_realtime_call(request: Request) -> Response:
                 files=files,
                 data=data,
             )
+    except httpx.HTTPError as exc:
+        raise _provider_error(exc) from exc
+
     if response.status_code >= 400:
         detail = response.text[:4000]
         LOGGER.warning("Layan realtime provider rejected call: status=%s body=%s", response.status_code, detail)
@@ -87,8 +88,6 @@ async def create_layan_realtime_call(request: Request) -> Response:
 
 @router.post("/api/voice-avatar/public-session")
 async def create_layan_realtime_session():
-    # CI tests must be deterministic and must not require an external API key.
-    # Production always uses the real ephemeral client-secret flow below.
     if os.getenv("ENVIRONMENT") == "test":
         return {
             "public": True,
