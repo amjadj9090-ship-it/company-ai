@@ -41,6 +41,21 @@ jobs:
           assert data.get("mode") == "production", data
           PY
 
+      - name: Check Layan realtime voice configuration
+        run: |
+          set -euo pipefail
+          code="$(curl --silent --show-error --output /tmp/voice.json --write-out '%{http_code}' --max-time 60 -X POST 'https://company-ai-0mya.onrender.com/api/voice-avatar/public-session' -H 'Content-Type: application/json' -d '{}')"
+          echo "Layan public-session HTTP status: $code"
+          cat /tmp/voice.json
+          test "$code" = "200"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path('/tmp/voice.json').read_text())
+          assert isinstance(data.get('value'), str) and data['value'].startswith('ek_'), data
+          assert data.get('model') == 'gpt-realtime-2.1', data
+          PY
+
       - name: Check production homepage and public assets
         run: |
           set -euo pipefail
