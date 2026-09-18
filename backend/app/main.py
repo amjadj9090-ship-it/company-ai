@@ -162,7 +162,7 @@ def owner_only(u=Depends(current_user)):
 def allowed(u,kind): return '*' in ROLE_OK.get(u.role,set()) or kind in ROLE_OK.get(u.role,set())
 @app.middleware('http')
 async def security_headers(request:Request,call_next):
-    r=await call_next(request); r.headers.update({'X-Content-Type-Options':'nosniff','X-Frame-Options':'DENY','Referrer-Policy':'no-referrer','Permissions-Policy':'camera=(), microphone=(), geolocation=()'}); return r
+    r=await call_next(request); r.headers.update({'X-Content-Type-Options':'nosniff','X-Frame-Options':'DENY','Referrer-Policy':'no-referrer','Permissions-Policy':'camera=(), microphone=(self), geolocation=()'}); return r
 @app.get('/health')
 def health(): return {'status':'ok','version':VERSION,'database':'postgresql' if DATABASE_URL.startswith('postgres') else 'sqlite'}
 @app.post('/api/auth/login')
