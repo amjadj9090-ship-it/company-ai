@@ -4,7 +4,7 @@
  */
 (function(){
 'use strict';
-const VERSION='20260919-07';
+const VERSION='20260919-08';
 const state={recognition:null,running:false,busy:false,history:[],speaking:false,wakeLock:null};
 window.LayanVoiceBridge={mode:'browser-live-gemini-multilingual',version:VERSION};
 const stage=()=>document.getElementById('layanVoiceStage');
@@ -22,7 +22,7 @@ function voiceFor(lang){
  const vs=speechSynthesis.getVoices();
  return (lang==='ar'&&vs.find(v=>/^ar-(lb|jo|sy)/i.test(v.lang)))||vs.find(v=>v.lang.toLowerCase().startsWith(lang.toLowerCase()+'-'))||vs.find(v=>v.lang.toLowerCase()===lang.toLowerCase())||null;
 }
-function cleanup(){
+function cleanup(){\n if(state.audio){try{state.audio.pause();state.audio.currentTime=0}catch(_){}} state.audio=null;
  if(state.recognition){try{state.recognition.onend=null;state.recognition.onerror=null;state.recognition.stop()}catch(_){}}
  if('speechSynthesis' in window)try{speechSynthesis.cancel()}catch(_){}
  if(state.wakeLock){try{state.wakeLock.release()}catch(_){} state.wakeLock=null;}
@@ -39,6 +39,19 @@ function speak(reply,lang){
  u.onerror=()=>{state.speaking=false;setMode('');if(state.running)setTimeout(startRecognition,250);};
  speechSynthesis.speak(u);
 }
+async function speakWithGeminiTTS(reply,lang){
+ try{
+  const aid=await fetch((window.COMPANY_AI_API_BASE||'')+'/api/sales-agent/public/config',{cache:'no-store'}).then(r=>r.json()).then(d=>d.build_id);
+  const r=await fetch((window.COMPANY_AI_API_BASE||'')+'/api/sales-agent/'+aid+'/speech',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:reply,language:lang})});
+  if(!r.ok)throw Error('tts_unavailable');
+  const d=await r.json(); if(!d.audio_base64)throw Error('tts_empty');
+  const audio=new Audio('data:audio/wav;base64,'+d.audio_base64); audio.preload='auto';
+  state.audio=audio; state.speaking=true; setMode('speaking'); setState('ليان تتحدث…','صوت ليان الطبيعي بنفس لغة المحادثة.');
+  await audio.play();
+  await new Promise(resolve=>{audio.onended=resolve;audio.onerror=resolve;});
+  state.audio=null;state.speaking=false;setMode('');if(state.running)setTimeout(startRecognition,250);return true;
+ }catch(_){return false}
+}
 async function askGemini(message,lang){
  state.busy=true;setMode('speaking');setState('ليان تفهم طلبك…','عم تحلل المعنى والسياق قبل الرد.');
  try{
@@ -51,7 +64,7 @@ async function askGemini(message,lang){
    const reply=String(d.reply||'').trim();if(!reply)throw Error('رد فارغ');
    const outLang=(d.language||lang||'en').split('-')[0];
    state.history.push({role:'user',text:message},{role:'assistant',text:reply});
-   state.busy=false;speak(reply,outLang);return true;
+   state.busy=false; if(!(await speakWithGeminiTTS(reply,outLang))) speak(reply,outLang); return true;
  }catch(e){
    state.busy=false;setMode('');setState('تعذر الرد حالياً',e.message||'حاول مرة ثانية.');return false;
  }
@@ -71,7 +84,7 @@ function startRecognition(){
    const shown=(heard+' '+interim).trim();if(shown)text('layanVoiceText',shown);
  };
  r.onerror=e=>{state.recognition=null;if(e.error==='not-allowed'){setState('الميكروفون غير مسموح','اسمح بالميكروفون ثم جرّب مرة ثانية.');return}if(state.running&&!state.busy)setTimeout(startRecognition,500)};
- r.onend=()=>{state.recognition=null;if(heard.trim()){const finalText=heard.trim();heard='';setState('ليان تنتظر أن تنهي كلامك…','كمّل براحتك. لن أرسل الكلام قبل ما تتوقف قليلاً.');setTimeout(()=>{if(state.running&&!state.busy&&!state.speaking)askGemini(finalText,lang)},1800)}else if(state.running&&!state.busy)setTimeout(startRecognition,300)};
+ r.onend=()=>{state.recognition=null;if(heard.trim()){const finalText=heard.trim();heard='';setState('ليان تنتظر أن تنهي كلامك…','كمّل براحتك. لن أرسل الكلام قبل ما تتوقف قليلاً.');setTimeout(()=>{if(state.running&&!state.busy&&!state.speaking)askGemini(finalText,lang)},4500)}else if(state.running&&!state.busy)setTimeout(startRecognition,300)};
  try{r.start();return true}catch(_){state.recognition=null;return false}
 }
 async function start(){
