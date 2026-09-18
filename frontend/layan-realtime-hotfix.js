@@ -83,13 +83,28 @@ function startRecognition(){
  r.interimResults=true;r.continuous=true;r.maxAlternatives=1;
  let heard='';
  r.onstart=()=>{setMode('listening');setState('ليان تستمع إليك…','احكي بلغتك وبلهجتك بشكل طبيعي.');};
+ let silenceTimer=null;
+ const clearSilence=()=>{if(silenceTimer){clearTimeout(silenceTimer);silenceTimer=null;}};
+ const armSilence=()=>{
+   clearSilence();
+   silenceTimer=setTimeout(()=>{
+     if(!state.running||state.busy||state.speaking)return;
+     const finalText=heard.trim();
+     if(!finalText)return;
+     heard='';
+     try{r.stop()}catch(_){}
+     setState('ليان تفهم طلبك…','عم أجهز الرد.');
+     askGemini(finalText,lang);
+   },3000);
+ };
  r.onresult=e=>{
    let interim='';
    for(let i=e.resultIndex;i<e.results.length;i++){const t=(e.results[i][0]?.transcript||'').trim();if(e.results[i].isFinal)heard+=(heard?' ':'')+t;else interim+=(interim?' ':'')+t}
    const shown=(heard+' '+interim).trim();if(shown)text('layanVoiceText',shown);
+   if(shown)armSilence();
  };
  r.onerror=e=>{state.recognition=null;if(e.error==='not-allowed'){setState('الميكروفون غير مسموح','اسمح بالميكروفون ثم جرّب مرة ثانية.');return}if(state.running&&!state.busy)setTimeout(startRecognition,500)};
- r.onend=()=>{state.recognition=null;if(heard.trim()){const finalText=heard.trim();heard='';setState('ليان تنتظر أن تنهي كلامك…','كمّل براحتك. لن أرسل الكلام قبل ما تتوقف قليلاً.');setTimeout(()=>{if(state.running&&!state.busy&&!state.speaking)askGemini(finalText,lang)},4500)}else if(state.running&&!state.busy)setTimeout(startRecognition,300)};
+ r.onend=()=>{clearSilence();state.recognition=null;if(heard.trim()){const finalText=heard.trim();heard='';if(state.running&&!state.busy&&!state.speaking)askGemini(finalText,lang)}else if(state.running&&!state.busy)setTimeout(startRecognition,300)};
  try{r.start();return true}catch(_){state.recognition=null;return false}
 }
 async function start(){
