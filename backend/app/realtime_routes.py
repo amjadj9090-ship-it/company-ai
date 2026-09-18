@@ -71,11 +71,7 @@ async def create_layan_realtime_call(request: Request) -> Response:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 f"{OPENAI_REALTIME_CALLS_URL}?model={REALTIME_MODEL}",
-                headers={
-                    **_provider_headers(api_key),
-                    "Accept": "application/sdp",
-                    "Content-Type": "application/sdp",
-                },
+                headers=(lambda h: (h.update({"Accept": "application/sdp", "Content-Type": "application/sdp"}) or h))(_provider_headers(api_key)),
                 content=raw_body,
             )
     except httpx.HTTPError as exc:
