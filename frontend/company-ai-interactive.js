@@ -77,7 +77,7 @@
       var el=e.target&&e.target.closest?e.target.closest('button,a,[role="button"],.layanChoice,.choice,.chip'):null;if(!el)return;
       if(el.id==='caiClose'||el.id==='caiCancel'||el.closest('#caiModal'))return;
       var t=textOf(el),href=el.getAttribute('href')||'';
-      if(isVoice(t)||el.classList.contains('voiceChoice')){if(window.startLayanVoice){e.preventDefault();e.stopPropagation();window.startLayanVoice()}return}
+      if(isVoice(t)||el.classList.contains('voiceChoice')){if(window.openLayanVoice){e.preventDefault();e.stopPropagation();if(e.stopImmediatePropagation)e.stopImmediatePropagation();window.openLayanVoice()}else if(window.startLayanVoice){e.preventDefault();e.stopPropagation();if(e.stopImmediatePropagation)e.stopImmediatePropagation();window.startLayanVoice()}return}
       var svc=matchService(t);if(svc){e.preventDefault();e.stopPropagation();openService(svc);return}
       if(/تحدث مع ليان|chat with layan|chat with ai|تحدث مع الذكاء|ابدأ مع ليان|ابدأ الآن|start/.test(t.toLowerCase())){e.preventDefault();e.stopPropagation();openAI();return}
       if(href==='#'||href==='javascript:void(0)'){e.preventDefault();}
