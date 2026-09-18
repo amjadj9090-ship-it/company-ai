@@ -72,14 +72,73 @@ applyLang();setTimeout(()=>{if(!sessionStorage.getItem('company_ai_intro_seen'))
 // Layan voice stage — approved full-screen experience
 let layanRecognition=null,layanRecording=false,layanSpeaking=false,layanMouthTimer=null;
 function openLayanVoice(){const s=document.getElementById('layanVoiceStage');if(!s)return false;s.classList.add('open');s.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';return false;}
-function closeLayanVoice(){stopLayanVoice();if('speechSynthesis' in window)speechSynthesis.cancel();stopLayanMouth();const s=document.getElementById('layanVoiceStage');if(s){s.classList.remove('open','listening','speaking');s.removeAttribute('open');s.setAttribute('aria-hidden','true');}if(location.hash==='#layanVoiceStage')history.replaceState(null,'',location.pathname+location.search);document.body.style.overflow='';return false;}if(location.hash==='#layanVoiceStage')history.replaceState(null,'',location.pathname+location.search);document.body.style.overflow='';}
+function closeLayanVoice(){stopLayanVoice();if('speechSynthesis' in window)speechSynthesis.cancel();stopLayanMouth();const s=document.getElementById('layanVoiceStage');if(s){s.classList.remove('open','listening','speaking');s.removeAttribute('open');s.setAttribute('aria-hidden','true');}if(location.hash==='#layanVoiceStage')history.replaceState(null,'',location.pathname+location.search);document.body.style.overflow='';return false;}
 function setLayanState(a,b){const x=document.getElementById('layanVoiceState'),y=document.getElementById('layanVoiceSub');if(x)x.textContent=a;if(y)y.textContent=b;}
 function startLayanMouth(){stopLayanMouth();const m=document.querySelector('.layanMouthRig');if(!m)return;layanMouthTimer=setInterval(()=>{const y=(.32+Math.random()*.82).toFixed(2),x=(.78+Math.random()*.34).toFixed(2);m.style.setProperty('--mouthY',y);m.style.setProperty('--mouthX',x);},95);}
 function stopLayanMouth(){if(layanMouthTimer){clearInterval(layanMouthTimer);layanMouthTimer=null;}const m=document.querySelector('.layanMouthRig');if(m){m.style.removeProperty('--mouthY');m.style.removeProperty('--mouthX');}}
 function pickArabicVoice(){if(!('speechSynthesis' in window))return null;const vs=speechSynthesis.getVoices();return vs.find(v=>/^ar(-|_)/i.test(v.lang))||vs.find(v=>/arabic|العربية/i.test(v.name))||null;}
 function speakLayan(text){const s=document.getElementById('layanVoiceStage');document.getElementById('layanVoiceText').textContent=text;if(!('speechSynthesis' in window)){setLayanState('ليان جاهزة','الصوت غير متاح في هذا المتصفح.');return;}speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang=(LAYAN_LANGS[lang]||LAYAN_LANGS.en).bcp;u.rate=.94;u.pitch=1.02;const voice=voiceForLanguage(lang);if(voice)u.voice=voice;u.onstart=()=>{layanSpeaking=true;s.classList.remove('listening');s.classList.add('speaking');startLayanMouth();setLayanState('ليان تتحدث…','استمع إلى رد ليان وشاهد حركة العينين والرأس والفم أثناء الكلام.');};u.onboundary=()=>{const m=document.querySelector('.layanMouthRig');if(m)m.animate([{transform:'scale(.72,.3)'},{transform:'scale(1.16,1)'},{transform:'scale(.88,.55)'}],{duration:150,easing:'ease-out'});};u.onend=()=>{layanSpeaking=false;stopLayanMouth();s.classList.remove('speaking');if(layanVoiceSession){setLayanState('ليان جاهزة','احكي الجملة التالية…');setTimeout(()=>startLayanRecognition(),300);}else setLayanState('ليان جاهزة','يمكنك التحدث معها مرة أخرى.');};u.onerror=()=>{layanSpeaking=false;stopLayanMouth();s.classList.remove('speaking');setLayanState('ليان جاهزة','يمكنك المحاولة مرة ثانية.');};speechSynthesis.speak(u);}
 async function answerLayan(q,detectedLang){if(layanVoiceBusy)return null;layanVoiceBusy=true;const detected=detectedLang||detectAndSetLayanLanguage(q,'لغة الكلام');if(detected&&detected!==lang)setLayanLanguage(detected,'لغة الكلام');const s=document.getElementById('layanVoiceStage');setLayanState('ليان تحلل طلبك…','عم جهّز الرد من نظام Company AI.');try{const aid=await getPublicSalesAgent();const prior=layanVoiceHistory.slice(-6);const r=await fetch(API+'/api/sales-agent/'+aid+'/conversation',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:q,language:lang,channel:'voice',assistant:'layan',history:prior})});if(!r.ok)throw Error('central_ai_unavailable');const d=await r.json();if(d.language&&LAYAN_LANGS[d.language])setLayanLanguage(d.language,'لغة النظام');const reply=(d.reply||'').trim();if(!reply)throw Error('empty_ai_reply');layanVoiceHistory.push({role:'user',text:q},{role:'assistant',text:reply});document.getElementById('layanVoiceText').textContent=reply;speakLayan(reply);return d;}catch(e){console.warn('Layan contextual reply unavailable',e);const t='وصلني طلبك، بس خدمة الذكاء المركزي غير متاحة حالياً. ما رح أعطيك جواباً عشوائياً أو أكرر قالباً ثابتاً.';document.getElementById('layanVoiceText').textContent=t;speakLayan(t);return null;}finally{layanVoiceBusy=false;}}
-function startLayanRecognition(){if(!layanVoiceSession||layanVoiceBusy||layanRecording)return false;const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){setLayanState('تعذر التقاط الصوت','هذا المتصفح لا يدعم التعرف على الكلام.');return false;}layanRecognition=new SR();layanRecognition.lang=(LAYAN_LANGS[lang]||LAYAN_LANGS.en).bcp;layanRecognition.interimResults=true;layanRecognition.continuous=false;layanRecognition.onstart=()=>{layanRecording=true;const st=document.getElementById('layanVoiceStage');st.classList.remove('speaking');st.classList.add('listening');setLayanState('ليان تستمع إليك…','احكي جملة واحدة بشكل طبيعي. بعد الرد رح ترجع تسمعك تلقائياً.');document.getElementById('layanStart').textContent='⏹ إيقاف';};layanRecognition.onresult=e=>{let q='';for(let i=e.resultIndex;i<e.results.length;i++)q+=e.results[i][0].transcript;q=q.trim();if(q)document.getElementById('layanVoiceText').textContent=q;if(e.results[e.results.length-1].isFinal&&q){layanRecording=false;const detected=detectAndSetLayanLanguage(q,'لغة الكلام');answerLayan(q,detected);}};layanRecognition.onerror=ev=>{console.warn('Layan recognition error',ev&&ev.error);if(layanVoiceSession&&!layanVoiceBusy){setLayanState('تعذر التقاط هذه الجملة','عم جرّب الاستماع من جديد…');setTimeout(()=>startLayanRecognition(),500);}};layanRecognition.onend=()=>{layanRecording=false;const st=document.getElementById('layanVoiceStage');st.classList.remove('listening');if(document.getElementById('layanStart'))document.getElementById('layanStart').textContent='🎙️ تحدث مع ليان';if(layanVoiceSession&&!layanVoiceBusy)setTimeout(()=>startLayanRecognition(),250);};try{layanRecognition.start();return true}catch(e){layanRecognition=null;return false;}}
+function startLayanRecognition(){
+  if(!layanVoiceSession||layanVoiceBusy||layanRecording)return false;
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){setLayanState('تعذر التقاط الصوت','هذا المتصفح لا يدعم التعرف على الكلام.');return false;}
+  layanRecognition=new SR();
+  layanRecognition.lang=(LAYAN_LANGS[lang]||LAYAN_LANGS.en).bcp;
+  layanRecognition.interimResults=true;
+  layanRecognition.continuous=true;
+  layanRecognition.maxAlternatives=1;
+  let committed='';
+  let settleTimer=null;
+  const commitAndAnswer=()=>{
+    if(settleTimer){clearTimeout(settleTimer);settleTimer=null;}
+    const q=committed.trim();
+    committed='';
+    if(q&&!layanVoiceBusy){
+      layanRecording=false;
+      answerLayan(q,detectAndSetLayanLanguage(q,'لغة الكلام'));
+    }
+  };
+  layanRecognition.onstart=()=>{
+    layanRecording=true;
+    const st=document.getElementById('layanVoiceStage');
+    st.classList.remove('speaking');st.classList.add('listening');
+    setLayanState('ليان تستمع إليك…','احكي براحتك، وما رح أقطع كلامك بسرعة. توقّف قليلاً عندما تنتهي.');
+    document.getElementById('layanStart').textContent='⏹ إيقاف';
+  };
+  layanRecognition.onresult=e=>{
+    let interim='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const t=(e.results[i][0].transcript||'').trim();
+      if(e.results[i].isFinal){committed+=(committed?' ':'')+t;}
+      else interim+=(interim?' ':'')+t;
+    }
+    const shown=(committed+' '+interim).trim();
+    if(shown)document.getElementById('layanVoiceText').textContent=shown;
+    if(committed){
+      if(settleTimer)clearTimeout(settleTimer);
+      settleTimer=setTimeout(commitAndAnswer,1800);
+    }
+  };
+  layanRecognition.onerror=ev=>{
+    console.warn('Layan recognition error',ev&&ev.error);
+    if(ev&&ev.error==='not-allowed'){
+      layanRecording=false;
+      setLayanState('الميكروفون غير مفعّل','اسمح للمتصفح بالميكروفون ثم جرّب مرة ثانية.');
+      return;
+    }
+    if(layanVoiceSession&&!layanVoiceBusy)setTimeout(()=>startLayanRecognition(),700);
+  };
+  layanRecognition.onend=()=>{
+    layanRecording=false;
+    const st=document.getElementById('layanVoiceStage');
+    st.classList.remove('listening');
+    if(document.getElementById('layanStart'))document.getElementById('layanStart').textContent='🎙️ تحدث مع ليان';
+    if(committed){commitAndAnswer();return;}
+    if(layanVoiceSession&&!layanVoiceBusy)setTimeout(()=>startLayanRecognition(),300);
+  };
+  try{layanRecognition.start();return true}catch(e){layanRecognition=null;console.warn('Layan recognition start failed',e);return false;}
+}
 async function startLayanVoice(){if(layanVoiceSession)return;layanVoiceSession=true;layanVoiceHistory=[];setLayanState('ليان تستمع إليك…','عم فعّل الميكروفون ونبدأ المحادثة.');try{if(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia){const stream=await navigator.mediaDevices.getUserMedia({audio:true});stream.getTracks().forEach(t=>t.stop());}}catch(e){layanVoiceSession=false;let msg='اسمح للمتصفح باستخدام الميكروفون ثم اضغط «تحدث مع ليان» مرة ثانية.';try{if(navigator.permissions){const p=await navigator.permissions.query({name:'microphone'});if(p.state==='denied')msg='إذن الميكروفون مرفوض حالياً. فعّله من إعدادات أذونات هذا الموقع، ثم ارجع واضغط «تحدث مع ليان» مرة ثانية.';}}catch(_){}setLayanState('الميكروفون غير مفعّل',msg);console.warn('Layan microphone permission unavailable',e);return;}startLayanRecognition();}
 function stopLayanVoice(){layanVoiceSession=false;layanVoiceBusy=false;if(layanRecognition){try{layanRecognition.onend=null;layanRecognition.onerror=null;layanRecognition.stop()}catch(e){}}layanRecognition=null;layanRecording=false;document.getElementById('layanVoiceStage')?.classList.remove('listening');if(document.getElementById('layanStart'))document.getElementById('layanStart').textContent='🎙️ تحدث مع ليان';}
 function openLayanVoice(){const st=document.getElementById('layanVoiceStage');if(!st)return false;st.classList.add('open');st.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';return false;}
