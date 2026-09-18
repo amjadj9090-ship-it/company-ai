@@ -23,6 +23,7 @@ def _realtime_session() -> dict:
         "type": "realtime",
         "model": REALTIME_MODEL,
         "audio": {"output": {"voice": "marin"}},
+        "instructions": LAYAN_INSTRUCTIONS,
     }
 
 
@@ -66,7 +67,7 @@ async def create_layan_realtime_call(request: Request) -> Response:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 OPENAI_REALTIME_CALLS_URL,
-                headers=_provider_headers(api_key),
+                headers={**_provider_headers(api_key), "Accept": "application/sdp"},
                 files=files,
             )
     except httpx.HTTPError as exc:
@@ -74,7 +75,7 @@ async def create_layan_realtime_call(request: Request) -> Response:
         raise _provider_error(exc) from exc
     if response.status_code >= 400:
         detail = response.text[:4000]
-        LOGGER.warning("Layan realtime provider rejected call: status=%s", response.status_code)
+        LOGGER.warning("Layan realtime provider rejected call: status=%s body=%s", response.status_code, detail)
         raise HTTPException(status_code=response.status_code, detail=f"Realtime provider error: HTTP {response.status_code}: {detail}")
     answer_sdp = response.text.strip()
     if not answer_sdp:
