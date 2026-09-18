@@ -22,6 +22,9 @@ def test_mobile_layout_contracts_exist():
     dashboard = read("dashboard.html")
 
     assert "@media(max-width:520px)" in index
+    assert 'id="layanVoiceEntry"' in index
+    assert 'onclick="openLayanVoice();return false;"' in index
+    assert '/assets/layan-office.webp' in index
     assert "@media(max-width:700px)" in admin
     assert "@media(max-width:500px)" in dashboard
     assert "min-height:44px" in admin
