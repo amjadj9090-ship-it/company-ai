@@ -63,8 +63,8 @@ async def create_layan_realtime_call(request: Request) -> Response:
     content_type = request.headers.get("content-type", "")
     body_sha256 = hashlib.sha256(raw_body).hexdigest()[:16]
     LOGGER.warning("Layan WebRTC offer received: bytes=%s content_type=%s sha256=%s", len(raw_body), content_type, body_sha256)
-    sdp = raw_body.decode("utf-8", errors="replace").strip()
-    if not sdp:
+    sdp = raw_body.decode("utf-8", errors="strict")
+    if not sdp.strip():
         LOGGER.warning("Layan WebRTC offer is empty after decoding")
         raise HTTPException(status_code=400, detail="Missing WebRTC SDP offer.")
 
@@ -86,7 +86,7 @@ async def create_layan_realtime_call(request: Request) -> Response:
                     "Accept": "application/sdp",
                     "Content-Type": "application/sdp",
                 },
-                content=sdp,
+                content=raw_body,
             )
     except httpx.HTTPError as exc:
         LOGGER.exception("Layan realtime provider request failed")
