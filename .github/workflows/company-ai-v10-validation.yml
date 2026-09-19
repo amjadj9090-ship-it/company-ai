@@ -1,0 +1,24 @@
+name: Company AI v10 validation
+on:
+  push:
+    branches: [new-interface-test]
+    paths:
+      - 'frontend/index.html'
+      - 'frontend/company-ai-v10.js'
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate v10 frontend
+        run: |
+          set -euo pipefail
+          test -s frontend/index.html
+          test -s frontend/company-ai-v10.js
+          node --check frontend/company-ai-v10.js
+          grep -q 'approvedLayanAsset' frontend/index.html
+          grep -q 'layanVoiceStage' frontend/company-ai-v10.js
+          grep -q 'layanVoiceState' frontend/company-ai-v10.js
+          grep -q 'layanStart' frontend/company-ai-v10.js
+          grep -q 'layan-office.webp' frontend/company-ai-v10.js
+          grep -q '@media(max-width:700px)' frontend/company-ai-v10.js
