@@ -1,0 +1,13 @@
+import {detectLanguage,setDocumentLanguage} from "./language.js";
+const services=[
+["web","تصميم المواقع","مواقع احترافية للشركات والأنشطة والخدمات والمتاجر."],
+["apps","تصميم التطبيقات","تطبيقات مخصصة للهواتف والويب والشركات."],
+["ai","الذكاء الاصطناعي والأتمتة","حلول ذكاء اصطناعي وأتمتة تربط العمل بالنتائج."],
+["growth","التسويق والنمو","حلول تساعد على الوصول للعملاء وتنمية الأعمال."],
+["commerce","التجارة الإلكترونية","حلول متكاملة للبيع عبر الإنترنت وإدارة رحلة العميل."],
+["enterprise","حلول الشركات والأنظمة","أنظمة رقمية مخصصة لإدارة العمليات والبيانات والعملاء."]];
+const text={en:{hero:"What do you want to build or improve?",sub:"Company AI builds digital products, AI systems and growth solutions for businesses.",services:"Our services",text:"Text chat with Layan",voice:"Voice chat with Layan",ask:"Not sure what to choose? Ask Layan."},ar:{hero:"شو بدك تبني أو تطوّر؟",sub:"Company AI تبني المنتجات الرقمية وأنظمة الذكاء الاصطناعي وحلول النمو للأعمال.",services:"خدماتنا",text:"دردشة نصية مع ليان",voice:"محادثة صوتية مع ليان",ask:"مو متأكد شو تختار؟ اسأل ليان."}};
+let language=detectLanguage();
+function t(key){return (text[language]||text.en)[key]||text.en[key]}
+function render(){setDocumentLanguage(language);const app=document.querySelector("#app");app.innerHTML="<header class=header><div class=brand>Company <span>AI</span></div><nav class=nav aria-label=Primary>"+services.map(s=>"<button type=button data-service=\""+s[0]+"\">"+s[1]+"</button>").join("")+"</nav><select class=language id=language aria-label=Language><option value=en>English</option><option value=ar>العربية</option><option value=es>Español</option><option value=fr>Français</option><option value=de>Deutsch</option><option value=pt>Português</option><option value=it>Italiano</option><option value=tr>Türkçe</option><option value=nl>Nederlands</option></select></header><main><section class=hero><div><p class=eyebrow>COMPANY AI</p><h1>"+t("hero")+"</h1><p>"+t("sub")+"</p><div class=actions><button class="action primary" data-layan=text>"+t("text")+"</button><button class="action secondary" data-layan=voice>"+t("voice")+"</button></div></div><div class=visual aria-label=Layan></div></section><section class=services><p class=eyebrow>01</p><h2>"+t("services")+"</h2><div class=grid>"+services.map(s=>"<article class=card><div class=mark aria-hidden=true></div><h3>"+s[1]+"</h3><p>"+s[2]+"</p><button type=button data-service=\""+s[0]+"\">عرض التفاصيل</button></article>").join("")+"</div></section><div class=note>"+t("ask")+"</div></main>";document.querySelector("#language").value=language;document.querySelector("#language").addEventListener("change",e=>{language=e.target.value;render()})}
+render();
