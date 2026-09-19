@@ -114,6 +114,9 @@ FRONTEND_DIR=os.path.abspath(os.path.join(os.path.dirname(__file__),'..','..','f
 # The home page is returned explicitly at /, while /assets and /frontend assets are served here.
 app.mount('/assets', StaticFiles(directory=os.path.abspath(os.path.join(os.path.dirname(__file__),'..','..','assets'))), name='assets')
 app.mount('/frontend-assets', StaticFiles(directory=FRONTEND_DIR), name='frontend-assets')
+@app.get('/layan-realtime-hotfix.js',include_in_schema=False)
+def layan_realtime_hotfix(): return FileResponse(os.path.join(FRONTEND_DIR,'layan-realtime-hotfix.js'),media_type='application/javascript')
+
 @app.get('/',include_in_schema=False)
 def public_home(): return FileResponse(os.path.join(FRONTEND_DIR,'index.html'),media_type='text/html')
 with Session(engine) as s: seed(s)
