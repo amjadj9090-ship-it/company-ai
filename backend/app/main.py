@@ -110,6 +110,10 @@ def seed(s):
 def healthz():
     return {'status':'ok','version':VERSION,'mode':os.getenv('ENVIRONMENT','development'),'database':'postgresql' if DATABASE_URL.lower().startswith(('postgresql://','postgres://')) else 'sqlite'}
 FRONTEND_DIR=os.path.abspath(os.path.join(os.path.dirname(__file__),'..','..','frontend'))
+# Serve the frontend's JS/CSS plus the root-level Layan office asset.
+# The home page is returned explicitly at /, while /assets and /frontend assets are served here.
+app.mount('/assets', StaticFiles(directory=os.path.abspath(os.path.join(os.path.dirname(__file__),'..','..','assets'))), name='assets')
+app.mount('/frontend-assets', StaticFiles(directory=FRONTEND_DIR), name='frontend-assets')
 @app.get('/',include_in_schema=False)
 def public_home(): return FileResponse(os.path.join(FRONTEND_DIR,'index.html'),media_type='text/html')
 with Session(engine) as s: seed(s)
