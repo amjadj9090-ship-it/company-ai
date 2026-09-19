@@ -137,11 +137,3 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 if('speechSynthesis' in window)speechSynthesis.onvoiceschanged=()=>speechSynthesis.getVoices();
 })();
 
-/* ROOT OFFICE-VISUAL FIX 20260919: create the voice office image from the voice runtime itself. */
-(function ensureLayanOfficeVisual(){
-  const OFFICE_SRC='/assets/layan-office.webp?v=20260919-rootfix2';
-  const CSS_ID='layan-office-rootfix-css';
-  function installCss(){if(document.getElementById(CSS_ID))return;const s=document.createElement('style');s.id=CSS_ID;s.textContent='.layanVoiceVisual{position:relative!important;overflow:hidden!important;background:#071322!important}.layanVoiceVisual .layanOfficeDedicated{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;display:block!important;visibility:visible!important;opacity:1!important;object-fit:cover!important;object-position:center center!important;z-index:1!important}.layanVoiceVisual .layanVoicePortraitWrap{display:none!important}.layanVoiceVisual .layanVoiceGlow{z-index:2!important}.layanVoiceVisual .layanVoiceOfficeBadge{z-index:5!important}';(document.head||document.documentElement).appendChild(s)}
-  function mount(){installCss();const v=document.querySelector('.layanVoiceVisual');if(!v)return false;let img=v.querySelector('.layanOfficeDedicated');if(!img){img=document.createElement('img');img.className='layanOfficeDedicated';img.alt='مكتب ليان';img.decoding='async';img.loading='eager';v.insertBefore(img,v.firstChild)}if(img.dataset.rootfix!=='2'){img.dataset.rootfix='2';img.src=OFFICE_SRC}return true}
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();window.addEventListener('pageshow',mount);let tries=0;const timer=setInterval(()=>{if(mount()||++tries>20)clearInterval(timer)},250);
-})();
