@@ -110,8 +110,9 @@ def seed(s):
 def healthz():
     return {'status':'ok','version':VERSION,'mode':os.getenv('ENVIRONMENT','development'),'database':'postgresql' if DATABASE_URL.lower().startswith(('postgresql://','postgres://')) else 'sqlite'}
 FRONTEND_DIR=os.path.abspath(os.path.join(os.path.dirname(__file__),'..','..','frontend'))
-# Serve frontend files. The Layan office scene is self-contained in the page,
-# so there is no runtime dependency on a separate office-image directory.
+# Serve the frontend's JS/CSS plus the root-level Layan office asset.
+# The home page is returned explicitly at /, while /assets and /frontend assets are served here.
+app.mount('/assets', StaticFiles(directory=os.path.abspath(os.path.join(os.path.dirname(__file__),'..','..','assets'))), name='assets')
 app.mount('/frontend-assets', StaticFiles(directory=FRONTEND_DIR), name='frontend-assets')
 @app.get('/layan-realtime-hotfix.js',include_in_schema=False)
 def layan_realtime_hotfix(): return FileResponse(os.path.join(FRONTEND_DIR,'layan-realtime-hotfix.js'),media_type='application/javascript')
