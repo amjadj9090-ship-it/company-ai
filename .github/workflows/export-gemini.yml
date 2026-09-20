@@ -1,0 +1,19 @@
+name: Export Company AI for Gemini
+on:
+  push:
+    branches: [company-ai-launch-build-backup-20260920]
+permissions:
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create project ZIP
+        run: zip -r company-ai-launch-build-gemini.zip . -x ".git/*" ".github/workflows/export-gemini.yml"
+      - name: Upload ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: company-ai-launch-build-gemini
+          path: company-ai-launch-build-gemini.zip
+          retention-days: 1
