@@ -29,3 +29,7 @@
 .office-frame img,.chat-visual img{display:block!important;visibility:visible!important;opacity:1!important}
 .office-frame img{object-fit:contain!important;background:#eaf8ff}
 .chat-visual img{object-fit:contain!important;background:#eaf8ff}
+
+/* Fallback image root fix: render Layan directly as the panel background too */
+.office-frame{background-image:url("/launch-v1/assets/layan-office.svg?v=4");background-size:contain;background-position:center;background-repeat:no-repeat}
+.chat-visual{background-image:url("/launch-v1/assets/layan-office.svg?v=4");background-size:contain;background-position:center;background-repeat:no-repeat}
