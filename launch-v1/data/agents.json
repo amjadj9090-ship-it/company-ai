@@ -1,0 +1,204 @@
+{
+  "version": "1.0",
+  "agents": [
+    {
+      "id": "orchestrator",
+      "name": "Central Orchestrator",
+      "scope": "التنسيق المركزي وتحديد المسار",
+      "permissions": [
+        "route",
+        "plan",
+        "summarize"
+      ],
+      "approval": [
+        "money",
+        "contract",
+        "irreversible_change"
+      ]
+    },
+    {
+      "id": "layan",
+      "name": "Layan",
+      "scope": "استقبال العميل وفهم الطلب والسياق",
+      "permissions": [
+        "chat",
+        "voice",
+        "qualify",
+        "handoff"
+      ],
+      "approval": [
+        "money",
+        "contract"
+      ]
+    },
+    {
+      "id": "sales",
+      "name": "Sales & Lead Qualification",
+      "scope": "تأهيل العملاء والفرص",
+      "permissions": [
+        "qualify",
+        "create_lead",
+        "follow_up_plan"
+      ],
+      "approval": [
+        "discount_outside_policy",
+        "contract"
+      ]
+    },
+    {
+      "id": "web",
+      "name": "Web Development",
+      "scope": "المواقع وتجارب الويب",
+      "permissions": [
+        "specify",
+        "build_plan",
+        "qa_request"
+      ],
+      "approval": [
+        "production_release"
+      ]
+    },
+    {
+      "id": "apps",
+      "name": "App Development",
+      "scope": "تطبيقات الهاتف والويب",
+      "permissions": [
+        "specify",
+        "build_plan",
+        "qa_request"
+      ],
+      "approval": [
+        "production_release"
+      ]
+    },
+    {
+      "id": "ai",
+      "name": "AI & Automation",
+      "scope": "المساعدين والوكلاء والأتمتة",
+      "permissions": [
+        "design",
+        "test",
+        "integrate"
+      ],
+      "approval": [
+        "production_release"
+      ]
+    },
+    {
+      "id": "growth",
+      "name": "Marketing & Growth",
+      "scope": "التسويق والنمو",
+      "permissions": [
+        "strategy",
+        "campaign_plan",
+        "analytics"
+      ],
+      "approval": [
+        "spend_money"
+      ]
+    },
+    {
+      "id": "commerce",
+      "name": "E-commerce",
+      "scope": "المتاجر والطلبات والمنتجات",
+      "permissions": [
+        "design",
+        "catalog_plan",
+        "workflow"
+      ],
+      "approval": [
+        "money"
+      ]
+    },
+    {
+      "id": "enterprise",
+      "name": "Enterprise Systems",
+      "scope": "الأنظمة والتكاملات الداخلية",
+      "permissions": [
+        "architecture",
+        "integration_plan",
+        "qa_request"
+      ],
+      "approval": [
+        "production_release"
+      ]
+    },
+    {
+      "id": "delivery",
+      "name": "Project Delivery",
+      "scope": "المشاريع والمهام والجداول",
+      "permissions": [
+        "plan",
+        "assign",
+        "track",
+        "report"
+      ],
+      "approval": [
+        "scope_change_outside_policy"
+      ]
+    },
+    {
+      "id": "qa",
+      "name": "QA & Testing",
+      "scope": "الاختبارات والتحقق",
+      "permissions": [
+        "test",
+        "block_release",
+        "report"
+      ],
+      "approval": []
+    },
+    {
+      "id": "security",
+      "name": "Security",
+      "scope": "الحماية والصلاحيات والأسرار",
+      "permissions": [
+        "audit",
+        "recommend",
+        "block_risky_change"
+      ],
+      "approval": [
+        "security_exception"
+      ]
+    },
+    {
+      "id": "finance",
+      "name": "Finance",
+      "scope": "التقديرات والتقارير المالية",
+      "permissions": [
+        "estimate",
+        "report",
+        "forecast"
+      ],
+      "approval": [
+        "money_movement",
+        "contract"
+      ]
+    },
+    {
+      "id": "analytics",
+      "name": "Analytics & BI",
+      "scope": "المؤشرات والتحليلات",
+      "permissions": [
+        "analyze",
+        "report",
+        "forecast"
+      ],
+      "approval": []
+    },
+    {
+      "id": "support",
+      "name": "Support & Follow-up",
+      "scope": "الدعم والمتابعة",
+      "permissions": [
+        "support",
+        "follow_up",
+        "escalate"
+      ],
+      "approval": [
+        "refund_outside_policy",
+        "contract"
+      ]
+    }
+  ]
+}
