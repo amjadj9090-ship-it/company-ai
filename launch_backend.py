@@ -14,7 +14,7 @@ DATA=APP_ROOT/"data"
 app=FastAPI(title="Company AI Launch Platform",docs_url=None,redoc_url=None)
 app.mount("/launch-v1",StaticFiles(directory=str(APP_ROOT)),name="launch-static")
 
-GEMINI_MODEL="gemini-3.5-flash-lite"
+GEMINI_MODEL="gemini-2.5-flash-lite"
 GEMINI_URL=f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
 
 class ChatIn(BaseModel):
@@ -22,7 +22,7 @@ class ChatIn(BaseModel):
     language:str=Field(default="ar",max_length=10)
     history:list[dict[str,str]]=Field(default_factory=list)
 class AudioChatIn(ChatIn):
-    audio_base64:str=Field(min_length=1,max_length=12000000)
+    audio_base64:str=Field(min_length=1,max_length=20000000)
     mime_type:str=Field(default="audio/webm",max_length=80)
 class ProjectIn(BaseModel):
     title:str=Field(min_length=1,max_length=200)
