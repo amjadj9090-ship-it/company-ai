@@ -100,7 +100,7 @@ function startAudioFallback(){
       let sum=0;for(let i=0;i<data.length;i++){const v=(data[i]-128)/128;sum+=v*v}
       const rms=Math.sqrt(sum/data.length),now=performance.now();
       if(now<calibrationUntil){noiseFloor=noiseFloor*.92+rms*.08}
-      const threshold=Math.max(.035,noiseFloor*2.5);
+      const threshold=Math.max(.018,noiseFloor*1.8);
       if(rms>threshold){audioStarted=true;audioSilenceSince=0}
       else if(audioStarted){
         if(!audioSilenceSince)audioSilenceSince=now;
