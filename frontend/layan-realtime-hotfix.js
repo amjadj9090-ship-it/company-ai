@@ -2,7 +2,7 @@
 (function(){ 
     'use strict'; 
     const VERSION='20260920-mediarecorder-natural-v2'; 
-    const state={stream:null,recorder:null,chunks:[],recording:false,busy:false,speaking:false,history:[],silenceTimer:null,startedAt:0,levelTimer:null,wakeLock:null}; 
+    const state={stream:null,recorder:null,chunks:[],recording:false,busy:false,speaking:false,history:[],silenceTimer:null,startedAt:0,levelTimer:null,wakeLock:null,speechSeen:false,noiseFloor:0.01,maxTurnTimer:null}; 
     window.LayanVoiceBridge={mode:'mediarecorder-gemini-audio',version:VERSION};
 
     const stage=()=>document.getElementById('layanVoiceStage'); 
@@ -24,22 +24,29 @@
         try{ 
             const C=window.AudioContext||window.webkitAudioContext;if(!C)return; 
             const ctx=new C(),src=ctx.createMediaStreamSource(state.stream),an=ctx.createAnalyser(); 
-            an.fftSize=256;src.connect(an);const data=new Uint8Array(an.fftSize); 
+            an.fftSize=512;src.connect(an);const data=new Uint8Array(an.fftSize); 
+            const calibrationUntil=Date.now()+700; 
+            state.speechSeen=false;state.noiseFloor=0.01; 
             state.levelTimer=setInterval(()=>{ 
                 if(!state.recording){ctx.close().catch(()=>{});stopLevel();return} 
                 an.getByteTimeDomainData(data);let sum=0; 
                 for(const n of data){const x=(n-128)/128;sum+=x*x} 
                 const rms=Math.min(1,Math.sqrt(sum/data.length)*4); 
                 const s=stage();if(s)s.style.setProperty('--audio-level',String(rms)); 
-                if(state.recording && rms>0.03) armSilence(); 
+                if(Date.now()<calibrationUntil){ 
+                    state.noiseFloor=(state.noiseFloor*.85)+(rms*.15); 
+                    return; 
+                } 
+                const threshold=Math.max(0.045,state.noiseFloor*2.4); 
+                if(rms>threshold){state.speechSeen=true;armSilence();} 
             },80); 
         }catch(_){} 
     }
-
     function stopStream(){ if(state.stream){state.stream.getTracks().forEach(t=>{try{t.stop()}catch(){}});state.stream=null} stopLevel(); } 
     function cleanup(){ 
         if(state.silenceTimer)clearTimeout(state.silenceTimer); 
-        state.silenceTimer=null; 
+        if(state.maxTurnTimer)clearTimeout(state.maxTurnTimer); 
+        state.silenceTimer=null;state.maxTurnTimer=null; 
         try{if(state.recorder&&state.recorder.state!=='inactive')state.recorder.stop()}catch(){} 
         state.recorder=null;state.recording=false;state.busy=false;state.speaking=false; 
         stopStream();releaseAwake();setMode(''); 
@@ -47,12 +54,11 @@
 
     function output(reply,outLang){ 
         const s=stage();text('layanVoiceText',reply); 
-        // الربط الصحيح لصورة ليان داخل واجهة المحادثة (Office Chat) مع حماية الـ Fallback
-        const imgEl = s?.querySelector('.layanVoicePortrait') || s?.querySelector('img');
-        if(imgEl && !imgEl.src.includes('layan')) {
-            imgEl.src = 'assets/layan-office.webp';
-            imgEl.onerror = () => { imgEl.src = 'assets/layan-avatar.png'; };
-        }
+        // Keep the verified embedded Layan portrait. Do not replace it with missing /assets files.
+        const imgEl = s?.querySelector('.layanVoicePortrait');
+        if(imgEl && !imgEl.dataset.originalSrc) imgEl.dataset.originalSrc=imgEl.getAttribute('src')||'';
+        if(imgEl && !imgEl.getAttribute('src') && imgEl.dataset.originalSrc) imgEl.setAttribute('src',imgEl.dataset.originalSrc);
+        if(imgEl) imgEl.onerror=()=>{ if(imgEl.dataset.originalSrc) imgEl.src=imgEl.dataset.originalSrc; };
 
         if(!('speechSynthesis' in window)){setState('ليان جاهزة','الرد ظهر نصياً لأن إخراج الصوت غير متاح.');return} 
         try{speechSynthesis.cancel()}catch(_){} 
@@ -96,7 +102,7 @@
     // تعديل VAD الطبيعي ليكون 3500ms (3.5 ثوانٍ) لمنع القطع المبكر أثناء التفكير
     function armSilence(){ 
         if(state.silenceTimer)clearTimeout(state.silenceTimer); 
-        state.silenceTimer=setTimeout(finishRecording,3500); 
+        state.silenceTimer=setTimeout(finishRecording,2200); 
     }
 
     function beginRecording(){ 
@@ -114,8 +120,9 @@
                 if(blob.size>0)sendAudio(blob);else if(state.startedAt>0)setTimeout(beginRecording,300); 
             }; 
             r.start(250); 
-            state.recording=true;setMode('listening');setState('ليان تستمع إليك…','احكي براحتك، ولما توقف لفترة رح أرسل كلامك.'); 
-            startLevel();armSilence(); 
+            state.recording=true;setMode('listening');setState('ليان تستمع إليك…','احكي براحتك، ولما تخلص كلامك اسكت شوي ورح أرسل كلامك.'); 
+            startLevel(); 
+            state.maxTurnTimer=setTimeout(finishRecording,120000); 
             return true; 
         }catch(e){ 
             state.recording=false;state.recorder=null;setState('تعذر تشغيل الميكروفون','جرّب الضغط مرة ثانية.');return false; 
@@ -159,6 +166,42 @@
     window.addEventListener('load',bind); 
     document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&state.startedAt&&!state.recording&&!state.busy&&!state.speaking)beginRecording()}); 
     if('speechSynthesis' in window)speechSynthesis.onvoiceschanged=()=>speechSynthesis.getVoices();
+
+    /* Root mobile guard v3: compact voice stage and never summon keyboard in voice mode. */
+    (function mobileRootGuard(){ 
+        const id='layan-root-mobile-v3'; 
+        function install(){ 
+            if(document.getElementById(id))return; 
+            const st=document.createElement('style');st.id=id; 
+            st.textContent=`
+                html:has(#layanVoiceStage.open),body:has(#layanVoiceStage.open){overflow:hidden!important;position:fixed!important;width:100%!important;max-width:100%!important}
+                .layanVoiceStage.open{height:100dvh!important;max-height:100dvh!important;inset:0!important;overflow:hidden!important}
+                .layanVoiceShell{height:100dvh!important;max-height:100dvh!important;grid-template-columns:1fr!important;grid-template-rows:38dvh 62dvh!important}
+                .layanVoiceVisual{min-height:0!important;height:38dvh!important;max-height:38dvh!important}
+                .layanVoicePanel{min-height:0!important;height:62dvh!important;max-height:62dvh!important;overflow:hidden!important}
+                .layanVoiceBody{min-height:0!important;padding:8px 12px!important;justify-content:flex-start!important;overflow:hidden!important}
+                .layanVoiceTop{height:48px!important;min-height:48px!important;padding:0 10px!important}
+                .layanVoiceState{font-size:17px!important;line-height:1.25!important}
+                .layanVoiceSub{font-size:12px!important;margin-top:4px!important}
+                .layanWave{height:30px!important;margin:5px 0!important}
+                .layanVoiceText{min-height:42px!important;max-height:70px!important;padding:8px 10px!important;font-size:13px!important;overflow:auto!important}
+                .layanVoiceActions{margin-top:8px!important}
+                .layanVoiceActions button{padding:10px!important}
+                .layanVoiceNote{display:none!important}
+                @media(max-width:430px){.layanVoiceShell{grid-template-rows:36dvh 64dvh!important}.layanVoiceVisual{height:36dvh!important;max-height:36dvh!important}.layanVoicePanel{height:64dvh!important;max-height:64dvh!important}}
+            `; 
+            document.head.appendChild(st); 
+        }
+        function blurVoiceFocus(){
+            const s=stage(); if(!s?.classList.contains('open'))return;
+            const a=document.activeElement;
+            if(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) { try{a.blur()}catch(_){} }
+        }
+        install(); 
+        document.addEventListener('focusin',blurVoiceFocus,true);
+        window.addEventListener('resize',blurVoiceFocus);
+        window.addEventListener('pageshow',install);
+    })();
 
     /* Mobile Responsive Layout & Keyboard Guard (100dvh for Android) */ 
     (function mobileGuard(){ 
