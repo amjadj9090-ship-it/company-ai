@@ -11,7 +11,14 @@ function closeDrawer(){drawer.setAttribute("aria-hidden","true")}
 function openChat(prefill=""){modal.setAttribute("aria-hidden","false");if(prefill)input.value=prefill;setTimeout(()=>input.focus(),60)}
 function closeChat(){stopVoice();modal.setAttribute("aria-hidden","true")}
 function add(text,role){const e=document.createElement("div");e.className="bubble "+role;e.textContent=text;messages.appendChild(e);messages.scrollTop=messages.scrollHeight}
-function speak(text){if(!speechSynthesis)return;const u=new SpeechSynthesisUtterance(text);u.lang=S.lang==="ar"?"ar-SA":S.lang;u.rate=.96;speechSynthesis.cancel();u.onend=()=>{if(voiceSession)setTimeout(startListening,180)};speechSynthesis.speak(u)}
+let wakeLock=null;
+async function keepScreenAwake(){
+  if(!("wakeLock" in navigator))return;
+  try{if(wakeLock&&wakeLock.released===false)return;wakeLock=await navigator.wakeLock.request("screen");wakeLock.addEventListener("release",()=>{wakeLock=null})}catch(_){}
+}
+async function releaseScreenWake(){try{if(wakeLock){await wakeLock.release()}}catch(_){}wakeLock=null}
+function speak(text){if(!speechSynthesis)return;const u=new SpeechSynthesisUtterance(text);u.lang=S.lang==="ar"?"ar-SA":S.lang;u.rate=.96;speechSynthesis.cancel();u.onend=()=>{if(voiceSession){setTimeout(()=>{keepScreenAwake();startListening()},250)}};speechSynthesis.speak(u)}
+document.addEventListener("visibilitychange",()=>{if(voiceSession&&document.visibilityState==="visible")keepScreenAwake()});
 async function chat(text,fromVoice=false){
   add(text,"user");input.value="";clearVoiceTimer();
   if(fromVoice&&rec){try{rec.stop()}catch(_){ }rec=null}
@@ -49,30 +56,33 @@ function startVoice(){
   if(!SR){add("المتصفح لا يدعم الاتصال الصوتي حالياً. يمكنك متابعة ليان بالدردشة النصية.","assistant");return}
   if(voiceSession){stopVoice();return}
   voiceSession=true;pendingVoiceText="";clearVoiceTimer();
-  voice.textContent="⏹️ إنهاء الاتصال مع ليان";startListening();
+  voice.textContent="⏹️ إنهاء الاتصال مع ليان";add("🎙️ ليان تستمع الآن…","assistant");keepScreenAwake();startListening();
 }
 function startListening(){
   if(!voiceSession||rec)return;
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   rec=new SR();rec.lang=S.lang==="ar"?"ar-SA":S.lang;
   rec.interimResults=true;rec.continuous=false;rec.maxAlternatives=1;
+  rec.onstart=()=>{add("👂 الاستماع مفتوح… احكي براحتك.","assistant")};
   rec.onresult=e=>{
-    let latestInterim="";
+    let finalText="";
+    let interimText="";
     for(let i=e.resultIndex;i<e.results.length;i++){
       const r=e.results[i];const t=r[0]?.transcript?.trim();if(!t)continue;
-      if(r.isFinal) pendingVoiceText+=(pendingVoiceText?" ":"")+t;
-      else latestInterim+=(latestInterim?" ":"")+t;
+      if(r.isFinal) finalText+=(finalText?" ":"")+t;
+      else interimText+=(interimText?" ":"")+t;
     }
-    if(latestInterim) pendingVoiceText=latestInterim;
+    if(finalText) pendingVoiceText+=(pendingVoiceText?" ":"")+finalText;
     clearVoiceTimer();
     if(pendingVoiceText) silenceTimer=setTimeout(submitVoice,VOICE_SILENCE_MS);
+    else if(interimText) silenceTimer=setTimeout(()=>{if(interimText&&!pendingVoiceText){pendingVoiceText=interimText;submitVoice()}},VOICE_SILENCE_MS);
   };
   rec.onerror=e=>{
     rec=null;clearVoiceTimer();
     if(e.error==="not-allowed"||e.error==="service-not-allowed"){
       stopVoice();add("لم يتم السماح للميكروفون. اسمح به من الهاتف ثم اضغط الاتصال مرة ثانية.","assistant");
     } else if(e.error!=="aborted"){
-      stopVoice();add("انقطع الاستماع الصوتي. اضغط الاتصال مرة ثانية للمتابعة.","assistant");
+      stopVoice();add("تعذر بدء الاستماع الصوتي ("+e.error+"). جرّب الاتصال مرة ثانية.","assistant");
     }
   };
   rec.onend=()=>{
@@ -85,6 +95,7 @@ function stopVoice(){
   voiceSession=false;clearVoiceTimer();pendingVoiceText="";
   if(rec){try{rec.abort()}catch(_){ }rec=null}
   if(speechSynthesis)speechSynthesis.cancel();
+  releaseScreenWake();
   if(voice)voice.textContent="🎙️ ابدأ الاتصال الصوتي مع ليان";
 }
 function setLang(v){S.lang=v;document.documentElement.lang=v;document.documentElement.dir=v==="ar"?"rtl":"ltr";language.value=v;localStorage.setItem("launch-language",v)}
