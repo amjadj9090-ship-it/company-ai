@@ -28,4 +28,4 @@
 /* Layan image visibility root fix */
 .office-frame img,.chat-visual img{display:block!important;visibility:visible!important;opacity:1!important}
 .office-frame img{object-fit:contain!important;background:#eaf8ff}
-.chat-visual img{object-fit:cover!important;background:#eaf8ff}
+.chat-visual img{object-fit:contain!important;background:#eaf8ff}
