@@ -1,0 +1,111 @@
+{
+  "version": "1.0",
+  "rules": [
+    {
+      "id": "web",
+      "keywords": [
+        "موقع",
+        "مواقع",
+        "website",
+        "web site",
+        "landing",
+        "صفحة"
+      ],
+      "agent": "web"
+    },
+    {
+      "id": "apps",
+      "keywords": [
+        "تطبيق",
+        "app",
+        "android",
+        "iphone",
+        "ios"
+      ],
+      "agent": "apps"
+    },
+    {
+      "id": "ai",
+      "keywords": [
+        "ذكاء اصطناعي",
+        "AI",
+        "روبوت",
+        "مساعد",
+        "وكيل",
+        "automation",
+        "أتمتة"
+      ],
+      "agent": "ai"
+    },
+    {
+      "id": "growth",
+      "keywords": [
+        "تسويق",
+        "marketing",
+        "عملاء",
+        "campaign",
+        "حملة",
+        "نمو"
+      ],
+      "agent": "growth"
+    },
+    {
+      "id": "commerce",
+      "keywords": [
+        "متجر",
+        "ecommerce",
+        "تجارة إلكترونية",
+        "منتجات",
+        "دفع"
+      ],
+      "agent": "commerce"
+    },
+    {
+      "id": "enterprise",
+      "keywords": [
+        "CRM",
+        "نظام",
+        "لوحة تحكم",
+        "API",
+        "شركة",
+        "enterprise"
+      ],
+      "agent": "enterprise"
+    }
+  ],
+  "escalations": [
+    {
+      "id": "money",
+      "keywords": [
+        "تحويل",
+        "ادفع",
+        "دفع",
+        "money",
+        "transfer",
+        "refund",
+        "استرداد"
+      ],
+      "approval": "owner"
+    },
+    {
+      "id": "contract",
+      "keywords": [
+        "عقد",
+        "contract",
+        "توقيع",
+        "sign"
+      ],
+      "approval": "owner"
+    },
+    {
+      "id": "production",
+      "keywords": [
+        "نشر",
+        "deploy",
+        "production",
+        "إطلاق"
+      ],
+      "approval": "owner_or_policy"
+    }
+  ]
+}
