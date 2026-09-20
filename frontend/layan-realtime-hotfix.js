@@ -5,7 +5,7 @@
  */
 (function(){
 'use strict';
-const VERSION='20260920-mediarecorder-rootfix1';
+const VERSION='20260920-mediarecorder-rootfix2';
 const state={stream:null,recorder:null,chunks:[],recording:false,busy:false,speaking:false,history:[],silenceTimer:null,startedAt:0,levelTimer:null,wakeLock:null};
 window.LayanVoiceBridge={mode:'mediarecorder-gemini-audio',version:VERSION};
 
@@ -51,6 +51,7 @@ function startLevel(){
      for(const n of data){const x=(n-128)/128;sum+=x*x}
      const rms=Math.min(1,Math.sqrt(sum/data.length)*4);
      const s=stage();if(s)s.style.setProperty('--audio-level',String(rms));
+     if(state.recording && rms>0.035) armSilence();
    },80);
  }catch(_){}
 }
