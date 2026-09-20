@@ -12,14 +12,81 @@ function openChat(prefill=""){modal.setAttribute("aria-hidden","false");if(prefi
 function closeChat(){stopVoice();modal.setAttribute("aria-hidden","true")}
 function add(text,role){const e=document.createElement("div");e.className="bubble "+role;e.textContent=text;messages.appendChild(e);messages.scrollTop=messages.scrollHeight}
 function speak(text){if(!speechSynthesis)return;const u=new SpeechSynthesisUtterance(text);u.lang=S.lang==="ar"?"ar-SA":S.lang;u.rate=.96;speechSynthesis.cancel();u.onend=()=>{if(voiceSession)setTimeout(startListening,180)};speechSynthesis.speak(u)}
-async function chat(text,fromVoice=false){add(text,"user");input.value="";clearVoiceTimer();if(fromVoice&&rec){try{rec.stop()}catch(_){ }rec=null}const t=document.createElement("div");t.className="bubble assistant";t.textContent=S.lang==="ar"?"عم فكّر…":"Thinking…";messages.appendChild(t);try{const r=await fetch("/launch-api/chat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({message:text,language:S.lang,history:S.history})});const d=await r.json();const reply=d.reply||"ليان ما قدرت تكمل الطلب حالياً.";t.textContent=reply;S.history.push({role:"user",content:text},{role:"assistant",content:reply});S.history=S.history.slice(-12);speak(reply)}catch(_){t.textContent="تعذر الاتصال بليان حالياً. لم يتم تنفيذ أي إجراء خارجي.";if(voiceSession)setTimeout(startListening,250)}}
+async function chat(text,fromVoice=false){
+  add(text,"user");input.value="";clearVoiceTimer();
+  if(fromVoice&&rec){try{rec.stop()}catch(_){ }rec=null}
+  const t=document.createElement("div");t.className="bubble assistant";t.textContent=S.lang==="ar"?"عم فكّر…":"Thinking…";messages.appendChild(t);
+  try{
+    const r=await fetch("/launch-api/chat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({message:text,language:S.lang,history:S.history})});
+    const d=await r.json();
+    if(!r.ok){
+      t.textContent=d.reply||"محرك ليان غير متاح حالياً.";
+      stopVoice();
+      return;
+    }
+    const reply=d.reply||"ليان ما قدرت تكمل الطلب حالياً.";
+    t.textContent=reply;
+    S.history.push({role:"user",content:text},{role:"assistant",content:reply});S.history=S.history.slice(-12);
+    speak(reply);
+  }catch(_){
+    t.textContent="تعذر الاتصال بليان حالياً. لم يتم تنفيذ أي إجراء خارجي.";
+    stopVoice();
+  }
+}
 async function analyzeService(title){try{const r=await fetch("/launch-api/company/plan",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({message:"أريد البدء بخدمة: "+title,language:S.lang,history:S.history})});const d=await r.json();add("الخدمة: "+title,"user");add("تم ربط الطلب بمسار Company AI المركزي. "+(d.summary||"ليان ستتابع معك التفاصيل."),"assistant")}catch(_){add("تعذر تحليل الخدمة حالياً، ولم يتم تنفيذ أي إجراء خارجي.","assistant")}}
 let rec=null,voiceSession=false,pendingVoiceText="",silenceTimer=null;
-const VOICE_SILENCE_MS=1800;
+const VOICE_SILENCE_MS=2600;
 function clearVoiceTimer(){if(silenceTimer){clearTimeout(silenceTimer);silenceTimer=null}}
-function startVoice(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){add("المتصفح لا يدعم الاتصال الصوتي حالياً. يمكنك متابعة ليان بالدردشة النصية.","assistant");return}if(voiceSession){stopVoice();return}voiceSession=true;pendingVoiceText="";clearVoiceTimer();voice.textContent="⏹️ إنهاء الاتصال مع ليان";startListening()}
-function startListening(){if(!voiceSession||rec)return;const SR=window.SpeechRecognition||window.webkitSpeechRecognition;rec=new SR();rec.lang=S.lang==="ar"?"ar-SA":S.lang;rec.interimResults=true;rec.continuous=true;rec.maxAlternatives=1;rec.onresult=e=>{let interim="";for(let i=e.resultIndex;i<e.results.length;i++){const r=e.results[i];const t=r[0]?.transcript?.trim();if(!t)continue;if(r.isFinal)pendingVoiceText+=(pendingVoiceText?" ":"")+t;else interim+=(interim?" ":"")+t}clearVoiceTimer();if(pendingVoiceText||interim){silenceTimer=setTimeout(()=>{const text=pendingVoiceText.trim();if(text){pendingVoiceText="";if(rec){try{rec.stop()}catch(_){ }rec=null}chat(text,true)}} ,VOICE_SILENCE_MS)}};rec.onerror=e=>{if(!voiceSession){stopVoice();return}if(e.error==="not-allowed"||e.error==="service-not-allowed"){stopVoice();add("لم يتم السماح للميكروفون. اسمح به من الهاتف ثم اضغط الاتصال مرة ثانية.","assistant")}};rec.onend=()=>{rec=null;if(voiceSession){setTimeout(startListening,120)}};try{rec.start()}catch(_){rec=null}}
-function stopVoice(){voiceSession=false;clearVoiceTimer();pendingVoiceText="";if(rec){try{rec.stop()}catch(_){ }rec=null}if(speechSynthesis)speechSynthesis.cancel();if(voice)voice.textContent="🎙️ ابدأ الاتصال الصوتي مع ليان"}
+function submitVoice(){
+  const text=pendingVoiceText.trim();
+  pendingVoiceText="";clearVoiceTimer();
+  if(!text||!voiceSession)return;
+  if(rec){try{rec.stop()}catch(_){ }rec=null}
+  chat(text,true);
+}
+function startVoice(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){add("المتصفح لا يدعم الاتصال الصوتي حالياً. يمكنك متابعة ليان بالدردشة النصية.","assistant");return}
+  if(voiceSession){stopVoice();return}
+  voiceSession=true;pendingVoiceText="";clearVoiceTimer();
+  voice.textContent="⏹️ إنهاء الاتصال مع ليان";startListening();
+}
+function startListening(){
+  if(!voiceSession||rec)return;
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  rec=new SR();rec.lang=S.lang==="ar"?"ar-SA":S.lang;
+  rec.interimResults=true;rec.continuous=false;rec.maxAlternatives=1;
+  rec.onresult=e=>{
+    let latestInterim="";
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const r=e.results[i];const t=r[0]?.transcript?.trim();if(!t)continue;
+      if(r.isFinal) pendingVoiceText+=(pendingVoiceText?" ":"")+t;
+      else latestInterim+=(latestInterim?" ":"")+t;
+    }
+    if(latestInterim) pendingVoiceText=latestInterim;
+    clearVoiceTimer();
+    if(pendingVoiceText) silenceTimer=setTimeout(submitVoice,VOICE_SILENCE_MS);
+  };
+  rec.onerror=e=>{
+    rec=null;clearVoiceTimer();
+    if(e.error==="not-allowed"||e.error==="service-not-allowed"){
+      stopVoice();add("لم يتم السماح للميكروفون. اسمح به من الهاتف ثم اضغط الاتصال مرة ثانية.","assistant");
+    } else if(e.error!=="aborted"){
+      stopVoice();add("انقطع الاستماع الصوتي. اضغط الاتصال مرة ثانية للمتابعة.","assistant");
+    }
+  };
+  rec.onend=()=>{
+    rec=null;
+    if(voiceSession&&pendingVoiceText) silenceTimer=setTimeout(submitVoice,VOICE_SILENCE_MS);
+  };
+  try{rec.start()}catch(_){rec=null}
+}
+function stopVoice(){
+  voiceSession=false;clearVoiceTimer();pendingVoiceText="";
+  if(rec){try{rec.abort()}catch(_){ }rec=null}
+  if(speechSynthesis)speechSynthesis.cancel();
+  if(voice)voice.textContent="🎙️ ابدأ الاتصال الصوتي مع ليان";
+}
 function setLang(v){S.lang=v;document.documentElement.lang=v;document.documentElement.dir=v==="ar"?"rtl":"ltr";language.value=v;localStorage.setItem("launch-language",v)}
 function bindLayanButtons(){const hv=$("#heroVoice");if(hv)hv.onclick=()=>{openChat();setTimeout(startVoice,120)};const tb=$("#textOnlyButton");if(tb)tb.onclick=()=>openChat()}
 document.addEventListener("click",e=>{const sec=e.target.closest("[data-section]"),op=e.target.closest("[data-open]"),de=e.target.closest("[data-detail]"),cl=e.target.closest("[data-close]"),cc=e.target.closest("[data-close-chat]"),st=e.target.closest("[data-start]"),pl=e.target.closest("[data-plan]");if(sec)openService(sec.dataset.section);if(op)openService(op.dataset.open);if(de)openDetail(de.dataset.detail);if(cl)closeDrawer();if(cc)closeChat();if(st){const title=st.dataset.start;closeDrawer();openChat("أريد البدء بخدمة: "+title)}if(pl){const title=pl.dataset.plan;closeDrawer();openChat("أريد تحليل طلبي لخدمة: "+title);setTimeout(()=>analyzeService(title),100)}});
