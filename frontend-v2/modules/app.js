@@ -28,6 +28,24 @@ function openSection(id,focus){
 }
 function openItem(s,id){const i=s.items.find(x=>x.id===id);if(!i)return;const body=$("#drawer .drawer-body");body.innerHTML=`<div class="crumb"><button data-back>← ${esc(t(lang,"back"))}</button><span>${esc(text(s.title))}</span><strong>${esc(text(i.title))}</strong></div><article class="detail"><div class="service-mark">${icon(s.id)}</div><h2>${esc(text(i.title))}</h2><p>${esc(text(i.description))}</p><div class="actions"><button class="btn primary" data-start>${esc(t(lang,"start"))}</button><button class="btn secondary" data-ask>${esc(t(lang,"text"))}</button></div></article>`;body.querySelector("[data-back]").onclick=()=>openSection(s.id);body.querySelector("[data-start]").onclick=()=>{closeDrawer();openChat(text(i.title))};body.querySelector("[data-ask]").onclick=()=>{closeDrawer();openChat(text(i.title))}}
 function closeDrawer(){const d=$("#drawer");d.classList.remove("open");d.setAttribute("aria-hidden","true")}
+function ensureVoiceStage(){
+ const id="layanVoiceStage";
+ let s=document.getElementById(id);
+ if(s)return s;
+ s=document.createElement("section");
+ s.id=id;s.className="layanVoiceStage";s.setAttribute("aria-hidden","true");
+ s.innerHTML=`<div class="layanVoicePanel">
+   <div class="layanVoiceTop"><div><strong>Layan</strong><small>LIVE • Company AI</small></div><button class="close layanClose" aria-label="Close">×</button></div>
+   <div class="layanVoiceVisual"><img class="layanOfficeDedicated" src="/assets/layan-office.webp?v=20260920-v4" alt="Layan in Company AI office" loading="eager" decoding="async"><div class="layanVoiceGlow"></div><div class="layanVoiceOfficeBadge"><span class="dot"></span> LIVE</div></div>
+   <div class="layanVoiceState" id="layanVoiceState">Layan is ready…</div>
+   <div class="layanVoiceSub" id="layanVoiceSub">Speak naturally in your language.</div>
+   <div class="layanVoiceText" id="layanVoiceText"></div>
+   <button id="layanStart" class="btn primary layanStart">Start conversation</button>
+ </div>`;
+ document.body.appendChild(s);
+ return s;
+}
+function openVoice(){ensureVoiceStage();if(typeof window.startLayanVoice!=="function")throw Error("Voice module is not ready");return window.startLayanVoice();}
 function openChat(prefill=""){const c=$("#chat");resetChat();c.innerHTML=`<div class="chat-panel"><div class="chat-head"><div class="layan-id"><span class="dot"></span><div><strong>Layan</strong><small>${esc(t(lang,"online"))}</small></div></div><button class="close" data-close>×</button></div><div class="chat-messages" id="messages"><div class="msg ai">${esc(t(lang,"notSure"))}</div></div><form class="chat-form"><input id="chat-input" placeholder="${esc(t(lang,"type"))}" value="${esc(prefill)}"><button>${esc(t(lang,"send"))}</button></form></div>`;c.classList.add("open");c.querySelector("[data-close]").onclick=closeChat;c.onclick=e=>{if(e.target===c)closeChat()};c.querySelector("form").onsubmit=async e=>{e.preventDefault();const x=$("#chat-input"),m=x.value.trim();if(!m)return;add(m,"user");x.value="";try{const r=await chat(m,lang);add(r.reply,"ai")}catch(err){add(err.message,"ai")}};c.querySelector("#chat-input").focus()}
 function add(v,k){const m=$("#messages"),x=document.createElement("div");x.className="msg "+k;x.textContent=v;m.appendChild(x);m.scrollTop=m.scrollHeight}
 function closeChat(){const c=$("#chat");c.classList.remove("open");c.setAttribute("aria-hidden","true")}
