@@ -39,10 +39,11 @@
     </div>
     <div class="hero-visual">
       <div class="office-frame">
-        <img src="/launch-v1/assets/layan-office.svg" alt="Layan in the Company AI office" onerror="this.classList.add('missing')">
+        <img src="/launch-v1/assets/layan-office.svg" alt="Layan in the Company AI office">
         <div class="live-badge"><i></i> LIVE</div>
+        <button id="heroVoice" class="layan-call" type="button">🎙️ تحدث مع ليان الآن</button>
       </div>
-      <div class="visual-note">ليان جاهزة تساعدك باختيار الطريق المناسب.</div>
+      <div class="visual-note">ليان موجودة هنا — نصياً أو صوتياً. اضغط «تحدث مع ليان الآن» لفتح الاتصال.</div>
     </div>
   </section>
 
@@ -73,7 +74,7 @@
       <input id="chatInput" autocomplete="off" placeholder="اكتب طلبك..." required>
       <button type="submit">إرسال</button>
     </form>
-    <button id="voiceButton" class="voice-button" type="button">🎙️ محادثة صوتية</button>
+    <div class="voice-actions"><button id="voiceButton" class="voice-button" type="button">🎙️ ابدأ الاتصال الصوتي مع ليان</button><button id="textOnlyButton" class="text-only-button" type="button">💬 متابعة بالدردشة النصية</button></div>
   </section>
 </div>
 
