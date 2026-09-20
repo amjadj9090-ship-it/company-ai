@@ -100,7 +100,7 @@ function startAudioFallback(){
       let sum=0;for(let i=0;i<data.length;i++){const v=(data[i]-128)/128;sum+=v*v}
       const rms=Math.sqrt(sum/data.length),now=performance.now();
       if(now<calibrationUntil){noiseFloor=noiseFloor*.92+rms*.08}
-      const threshold=Math.max(.018,noiseFloor*1.8);
+      const threshold=Math.max(.025,noiseFloor*2.2);
       if(rms>threshold){audioStarted=true;audioSilenceSince=0}
       else if(audioStarted){
         if(!audioSilenceSince)audioSilenceSince=now;
@@ -139,7 +139,7 @@ function stopVoice(){
   if(voice)voice.textContent="🎙️ ابدأ الاتصال الصوتي مع ليان";
 }
 function setLang(v){S.lang=v;document.documentElement.lang=v;document.documentElement.dir=v==="ar"?"rtl":"ltr";language.value=v;localStorage.setItem("launch-language",v)}
-function bindLayanButtons(){const hv=$("#heroVoice");if(hv)hv.onclick=()=>{openChat();setTimeout(startVoice,120)};const tb=$("#textOnlyButton");if(tb)tb.onclick=()=>openChat()}
+function bindLayanButtons(){const hv=$("#heroVoice");if(hv)hv.onclick=()=>{openChat();startVoice()};const tb=$("#textOnlyButton");if(tb)tb.onclick=()=>openChat()}
 document.addEventListener("click",e=>{const sec=e.target.closest("[data-section]"),op=e.target.closest("[data-open]"),de=e.target.closest("[data-detail]"),cl=e.target.closest("[data-close]"),cc=e.target.closest("[data-close-chat]"),st=e.target.closest("[data-start]"),pl=e.target.closest("[data-plan]");if(sec)openService(sec.dataset.section);if(op)openService(op.dataset.open);if(de)openDetail(de.dataset.detail);if(cl)closeDrawer();if(cc)closeChat();if(st){const title=st.dataset.start;closeDrawer();openChat("أريد البدء بخدمة: "+title)}if(pl){const title=pl.dataset.plan;closeDrawer();openChat("أريد تحليل طلبي لخدمة: "+title);setTimeout(()=>analyzeService(title),100)}});
 $("#browseServices").onclick=()=>$("#services").scrollIntoView({behavior:"smooth"});$("#heroChat").onclick=openChat;$("#openChat").onclick=openChat;voice.onclick=startVoice;
 $("#serviceSearch").oninput=e=>{const q=e.target.value.trim().toLowerCase();renderCards(!q?S.catalog.sections:S.catalog.sections.filter(x=>(x.title+" "+x.desc+" "+x.items.map(i=>i.title+" "+i.desc).join(" ")).toLowerCase().includes(q)))};
