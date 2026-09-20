@@ -6,7 +6,7 @@
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="description" content="Company AI — حلول المواقع والتطبيقات والذكاء الاصطناعي والنمو.">
 <title>Company AI</title>
-<link rel="stylesheet" href="/launch-v1/styles.css?v=1">
+<link rel="stylesheet" href="/launch-v1/styles.css?v=2">
 </head>
 <body>
 <header class="site-header">
@@ -15,13 +15,11 @@
   <div class="header-actions">
     <select id="language" aria-label="Language">
       <option value="ar">العربية</option><option value="en">English</option>
-      <option value="fr">Français</option><option value="de">Deutsch</option>
-      <option value="es">Español</option>
+      <option value="fr">Français</option><option value="de">Deutsch</option><option value="es">Español</option>
     </select>
     <button id="openChat" class="chat-link" type="button">تحدث مع ليان</button>
   </div>
 </header>
-
 <main id="home">
   <section class="hero">
     <div class="hero-copy">
@@ -32,52 +30,40 @@
         <button id="browseServices" class="primary" type="button">استكشف الخدمات</button>
         <button id="heroChat" class="secondary" type="button">اسأل ليان</button>
       </div>
-      <label class="search">
-        <span>⌕</span>
-        <input id="serviceSearch" type="search" placeholder="شو الخدمة اللي عم تدور عليها؟" autocomplete="off">
-      </label>
+      <label class="search"><span>⌕</span><input id="serviceSearch" type="search" placeholder="شو الخدمة اللي عم تدور عليها؟" autocomplete="off"></label>
     </div>
     <div class="hero-visual">
       <div class="office-frame">
-        <img src="/launch-v1/assets/layan-office.svg?v=2" alt="Layan in the Company AI office" loading="eager" fetchpriority="high" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><div class="layan-fallback" hidden><div class="fallback-person"><div class="fallback-hair"></div><div class="fallback-face"><i></i><i></i><b></b></div><div class="fallback-body"></div></div><strong>LAYAN • COMPANY AI</strong><span>مساعدة الذكاء الاصطناعي</span></div>
+        <img src="/launch-v1/assets/layan-office.svg?v=3" alt="Layan in the Company AI office" loading="eager" fetchpriority="high" onerror="this.hidden=true;this.nextElementSibling.hidden=false">
+        <div class="layan-fallback" hidden><div class="fallback-person"><div class="fallback-hair"></div><div class="fallback-face"><i></i><i></i><b></b></div><div class="fallback-body"></div></div><strong>LAYAN • COMPANY AI</strong><span>مساعدة الذكاء الاصطناعي</span></div>
         <div class="live-badge"><i></i> LIVE</div>
         <button id="heroVoice" class="layan-call" type="button">🎙️ تحدث مع ليان الآن</button>
       </div>
       <div class="visual-note">ليان موجودة هنا — نصياً أو صوتياً. اضغط «تحدث مع ليان الآن» لفتح الاتصال.</div>
     </div>
   </section>
-
   <section id="services" class="services-section">
-    <div class="section-heading">
-      <div><span class="eyebrow">SERVICES</span><h2>خدمات Company AI</h2></div>
-      <p>كل الخدمات موجودة. التنظيم هو اللي بيخليك توصل للخيار المناسب بدون تعقيد.</p>
-    </div>
+    <div class="section-heading"><div><span class="eyebrow">SERVICES</span><h2>خدمات Company AI</h2></div><p>كل الخدمات موجودة. التنظيم هو اللي بيخليك توصل للخيار المناسب بدون تعقيد.</p></div>
     <div id="serviceGrid" class="service-grid"></div>
   </section>
 </main>
-
 <div id="drawer" class="drawer" aria-hidden="true">
   <div class="drawer-backdrop" data-close></div>
-  <aside class="drawer-panel">
-    <button class="close" data-close aria-label="Close">×</button>
-    <div id="drawerContent"></div>
-  </aside>
+  <aside class="drawer-panel"><button class="close" data-close aria-label="Close">×</button><div id="drawerContent"></div></aside>
 </div>
-
 <div id="chatModal" class="modal" aria-hidden="true">
   <div class="modal-backdrop" data-close-chat></div>
   <section class="chat-panel" role="dialog" aria-modal="true" aria-labelledby="chatTitle">
     <button class="close" data-close-chat aria-label="Close">×</button>
-    <div class="chat-head"><div class="live-dot"></div><div><h2 id="chatTitle">ليان</h2><p>مساعدة Company AI</p></div></div>
+    <div class="chat-head">
+      <div class="chat-visual"><img src="/launch-v1/assets/layan-office.svg?v=3" alt="ليان في مكتب Company AI"></div>
+      <div><div class="live-dot"></div><h2 id="chatTitle">ليان</h2><p>مساعدة Company AI</p></div>
+    </div>
     <div id="chatMessages" class="chat-messages"><div class="bubble assistant">أهلاً! شو حابب تبني أو تطوّر؟</div></div>
-    <form id="chatForm" class="chat-form">
-      <input id="chatInput" autocomplete="off" placeholder="اكتب طلبك..." required>
-      <button type="submit">إرسال</button>
-    </form>
+    <form id="chatForm" class="chat-form"><input id="chatInput" autocomplete="off" placeholder="اكتب طلبك..." required><button type="submit">إرسال</button></form>
     <div class="voice-actions"><button id="voiceButton" class="voice-button" type="button">🎙️ ابدأ الاتصال الصوتي مع ليان</button><button id="textOnlyButton" class="text-only-button" type="button">💬 متابعة بالدردشة النصية</button></div>
   </section>
 </div>
-
-<script defer src="/launch-v1/app.js?v=1"></script>
+<script defer src="/launch-v1/app.js?v=2"></script>
 </body>
 </html>
