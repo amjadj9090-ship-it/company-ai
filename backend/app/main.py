@@ -110,15 +110,15 @@ def seed(s):
 def healthz():
     return {'status':'ok','version':VERSION,'mode':os.getenv('ENVIRONMENT','development'),'database':'postgresql' if DATABASE_URL.lower().startswith(('postgresql://','postgres://')) else 'sqlite'}
 FRONTEND_DIR=os.path.abspath(os.path.join(os.path.dirname(__file__),'..','..','frontend'))
-# Serve the frontend's JS/CSS plus the root-level Layan office asset.
-# The home page is returned explicitly at /, while /assets and /frontend assets are served here.
-app.mount('/assets', StaticFiles(directory=os.path.abspath(os.path.join(os.path.dirname(__file__),'..','..','assets'))), name='assets')
+PUBLIC_FRONTEND_DIR=os.path.abspath(os.path.join(os.path.dirname(__file__),'..','..','frontend-v2'))
+ASSETS_DIR=os.path.abspath(os.path.join(os.path.dirname(__file__),'..','..','assets'))
+app.mount('/assets', StaticFiles(directory=ASSETS_DIR), name='assets')
 app.mount('/frontend-assets', StaticFiles(directory=FRONTEND_DIR), name='frontend-assets')
+app.mount('/frontend-v2', StaticFiles(directory=PUBLIC_FRONTEND_DIR), name='frontend-v2')
 @app.get('/layan-realtime-hotfix.js',include_in_schema=False)
 def layan_realtime_hotfix(): return FileResponse(os.path.join(FRONTEND_DIR,'layan-realtime-hotfix.js'),media_type='application/javascript')
-
 @app.get('/',include_in_schema=False)
-def public_home(): return FileResponse(os.path.join(FRONTEND_DIR,'index.html'),media_type='text/html')
+def public_home(): return FileResponse(os.path.join(PUBLIC_FRONTEND_DIR,'index.html'),media_type='text/html')
 with Session(engine) as s: seed(s)
 class Login(BaseModel): email:EmailStr; password:str=Field(min_length=1)
 class Generic(BaseModel): data:dict=Field(default_factory=dict)

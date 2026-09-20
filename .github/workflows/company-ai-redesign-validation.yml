@@ -1,0 +1,34 @@
+name: Company AI redesign validation
+on:
+  push:
+    branches: ["company-ai-redesign-v1"]
+  pull_request:
+    branches: ["main"]
+jobs:
+  static-and-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate JSON catalog
+        run: python - <<'PY'
+import json
+p="frontend-v2/data/services.json"
+d=json.load(open(p,encoding="utf-8"))
+assert len(d["sections"])==6
+assert all(s.get("items") for s in d["sections"])
+print("catalog ok")
+PY
+      - name: Validate Python syntax
+        run: python -m compileall -q backend
+      - name: Validate JavaScript syntax
+        run: node --check frontend-v2/modules/app.js && node --check frontend-v2/modules/language.js && node --check frontend-v2/modules/layan.js
+      - name: Validate public integration boundary
+        run: |
+          grep -q 'PUBLIC_FRONTEND_DIR' backend/app/main.py
+          grep -q 'frontend-v2' backend/app/main.py
+          grep -q 'api/sales-agent' frontend-v2/modules/layan.js
+          grep -q 'layan-realtime-hotfix.js' frontend-v2/index.html
+      - name: Security surface check
+        run: |
+          ! grep -RniE 'AIza|sk-[A-Za-z0-9]|GEMINI_API_KEY=|JWT_SECRET=' frontend-v2 || true
+          test -f frontend-v2/ARCHITECTURE.md

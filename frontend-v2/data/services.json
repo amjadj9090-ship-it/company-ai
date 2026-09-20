@@ -1,0 +1,39 @@
+{"version":2,"sections":[
+{"id":"web","title":{"ar":"تصميم المواقع","en":"Website Design","es":"Diseño web","fr":"Création de sites","de":"Webdesign","pt":"Criação de sites"},"description":{"ar":"مواقع احترافية للشركات والأنشطة والخدمات والمتاجر.","en":"Professional websites for companies, businesses, services and stores."},"items":[
+{"id":"company","title":{"ar":"تصميم مواقع الشركات","en":"Company Websites"},"description":{"ar":"مواقع احترافية للتعريف بالشركات وخدماتها ونشاطها.","en":"Professional websites that present a company and its services."}},
+{"id":"business","title":{"ar":"تصميم مواقع الأنشطة التجارية","en":"Business Websites"},"description":{"ar":"مواقع لعرض نشاطك التجاري وخدماته أمام العملاء.","en":"Websites that present your business and services."}},
+{"id":"store","title":{"ar":"تصميم المتاجر الإلكترونية","en":"E-commerce Stores"},"description":{"ar":"متجر إلكتروني لعرض المنتجات واستقبال الطلبات وإدارة المبيعات.","en":"Online stores for products, orders and sales."}},
+{"id":"booking","title":{"ar":"مواقع الخدمات والحجوزات","en":"Service & Booking Websites"},"description":{"ar":"مواقع لعرض الخدمات وتمكين العملاء من الحجز أو طلب الخدمة.","en":"Websites for service requests and bookings."}},
+{"id":"landing","title":{"ar":"صفحات الهبوط","en":"Landing Pages"},"description":{"ar":"صفحات مخصصة لمنتج أو خدمة أو حملة تسويقية.","en":"Focused pages for products, services or campaigns."}},
+{"id":"existing","title":{"ar":"تطوير موقع موجود","en":"Improve an Existing Website"},"description":{"ar":"تحسين أو إعادة تصميم موقعك الحالي وإضافة الوظائف المطلوبة.","en":"Improve, redesign or extend an existing website."}}
+]},
+{"id":"apps","title":{"ar":"تصميم التطبيقات","en":"App Development","es":"Desarrollo de apps","fr":"Développement d'applications","de":"App-Entwicklung","pt":"Desenvolvimento de apps"},"description":{"ar":"تطبيقات مخصصة للهواتف والويب والشركات.","en":"Custom apps for mobile, web and business operations."},"items":[
+{"id":"android","title":{"ar":"تطبيقات Android وAPK","en":"Android & APK Apps"},"description":{"ar":"تطبيقات للهواتف والأجهزة التي تعمل بنظام Android.","en":"Apps for Android phones and devices."}},
+{"id":"ios","title":{"ar":"تطبيقات iPhone وiOS","en":"iPhone & iOS Apps"},"description":{"ar":"تطبيقات مخصصة لأجهزة iPhone وiPad.","en":"Custom apps for iPhone and iPad."}},
+{"id":"webapp","title":{"ar":"تطبيقات الويب","en":"Web Applications"},"description":{"ar":"تطبيقات تعمل مباشرة من المتصفح بدون تثبيت.","en":"Applications that run directly in the browser."}},
+{"id":"enterprise","title":{"ar":"تطبيقات الشركات","en":"Enterprise Apps"},"description":{"ar":"تطبيقات وأنظمة مخصصة لإدارة أعمال الشركات واحتياجاتها.","en":"Custom applications for company operations."}}
+]},
+{"id":"ai","title":{"ar":"الذكاء الاصطناعي والأتمتة","en":"AI & Automation","es":"IA y automatización","fr":"IA et automatisation","de":"KI & Automatisierung","pt":"IA e automação"},"description":{"ar":"حلول ذكاء اصطناعي وأتمتة تربط العمل بالنتائج.","en":"AI and automation connected to real business workflows."},"items":[
+{"id":"assistant","title":{"ar":"مساعدات الذكاء الاصطناعي","en":"AI Assistants"},"description":{"ar":"مساعد ذكي يفهم العملاء والموظفين وسياق الشركة.","en":"AI assistants that understand customers, staff and business context."}},
+{"id":"automation","title":{"ar":"أتمتة العمليات","en":"Process Automation"},"description":{"ar":"أتمتة المهام المتكررة وربط الأدوات والأنظمة.","en":"Automate repetitive work and connect systems."}},
+{"id":"agents","title":{"ar":"موظفو AI والوكلاء","en":"AI Agents"},"description":{"ar":"وكلاء متخصصون للمبيعات والدعم والتسويق والتحليل.","en":"Specialized agents for sales, support, marketing and analysis."}},
+{"id":"integration","title":{"ar":"دمج الذكاء الاصطناعي","en":"AI Integration"},"description":{"ar":"إضافة قدرات الذكاء الاصطناعي إلى نظام أو موقع موجود.","en":"Add AI capabilities to an existing system."}}
+]},
+{"id":"growth","title":{"ar":"التسويق والنمو","en":"Marketing & Growth","es":"Marketing y crecimiento","fr":"Marketing et croissance","de":"Marketing & Wachstum","pt":"Marketing e crescimento"},"description":{"ar":"حلول تساعد على الوصول للعملاء وتنمية الأعمال.","en":"Solutions that help businesses reach customers and grow."},"items":[
+{"id":"digital","title":{"ar":"التسويق الرقمي","en":"Digital Marketing"},"description":{"ar":"خطة وتنفيذ قنوات رقمية للوصول إلى العملاء.","en":"Plan and execute digital channels to reach customers."}},
+{"id":"seo","title":{"ar":"تحسين الظهور في البحث","en":"Search & SEO"},"description":{"ar":"تحسين الموقع والمحتوى لزيادة الوصول العضوي.","en":"Improve site and content visibility in search."}},
+{"id":"leads","title":{"ar":"جذب العملاء المحتملين","en":"Lead Generation"},"description":{"ar":"أنظمة وحملات لجذب العملاء المحتملين وتأهيلهم.","en":"Systems and campaigns to attract and qualify leads."}},
+{"id":"crm","title":{"ar":"CRM ونمو المبيعات","en":"CRM & Sales Growth"},"description":{"ar":"تنظيم العملاء والفرص والمتابعة لرفع كفاءة المبيعات.","en":"Organize customers, opportunities and follow-ups."}}
+]},
+{"id":"commerce","title":{"ar":"التجارة الإلكترونية","en":"E-commerce","es":"Comercio electrónico","fr":"E-commerce","de":"E-Commerce","pt":"E-commerce"},"description":{"ar":"حلول متكاملة للبيع عبر الإنترنت وإدارة رحلة العميل.","en":"Complete solutions for online selling and customer journeys."},"items":[
+{"id":"shop","title":{"ar":"بناء متجر إلكتروني","en":"Build an Online Store"},"description":{"ar":"إنشاء متجر متكامل للمنتجات والطلبات والمبيعات.","en":"Build a complete store for products, orders and sales."}},
+{"id":"catalog","title":{"ar":"إدارة المنتجات والكتالوج","en":"Catalog & Products"},"description":{"ar":"تنظيم المنتجات والأسعار والمخزون والمحتوى.","en":"Organize products, pricing, inventory and content."}},
+{"id":"checkout","title":{"ar":"الطلبات والدفع","en":"Orders & Checkout"},"description":{"ar":"تجربة طلب ودفع مناسبة لنشاطك وسوقك.","en":"Checkout and order flows suited to your market."}},
+{"id":"automation","title":{"ar":"أتمتة التجارة","en":"Commerce Automation"},"description":{"ar":"ربط الطلبات والعملاء والمخزون والمتابعة آلياً.","en":"Automate orders, customers, inventory and follow-up."}}
+]},
+{"id":"enterprise","title":{"ar":"حلول الشركات والأنظمة","en":"Business Systems","es":"Sistemas empresariales","fr":"Systèmes d'entreprise","de":"Unternehmenssysteme","pt":"Sistemas empresariais"},"description":{"ar":"أنظمة رقمية مخصصة لإدارة العمليات والبيانات والعملاء.","en":"Custom digital systems for operations, data and customers."},"items":[
+{"id":"crm","title":{"ar":"أنظمة CRM","en":"CRM Systems"},"description":{"ar":"إدارة العملاء والفرص والمبيعات وخدمة ما بعد البيع.","en":"Manage customers, opportunities, sales and follow-up."}},
+{"id":"internal","title":{"ar":"أنظمة الإدارة الداخلية","en":"Internal Business Systems"},"description":{"ar":"أنظمة مخصصة للعمليات والموظفين والمهام والبيانات.","en":"Custom systems for operations, staff, tasks and data."}},
+{"id":"dashboard","title":{"ar":"لوحات التحكم والتحليلات","en":"Dashboards & Analytics"},"description":{"ar":"لوحات واضحة لمتابعة الأداء والنتائج واتخاذ القرار.","en":"Dashboards for performance and decision support."}},
+{"id":"integrations","title":{"ar":"ربط الأنظمة والخدمات","en":"System Integrations"},"description":{"ar":"ربط الأنظمة والأدوات ومصادر البيانات ضمن سير عمل واحد.","en":"Connect systems, tools and data into one workflow."}}
+]}]}
