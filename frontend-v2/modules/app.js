@@ -1,4 +1,4 @@
-import data from "../data/services.json" with {type:"json"};
+let data={sections:[]};
 import{detectLanguage,setDocumentLanguage,t,supportedLanguages}from"./language.js";
 import{chat,resetChat,openVoice}from"./layan.js";
 let lang=localStorage.getItem("company-ai-language")||detectLanguage();if(!supportedLanguages().includes(lang))lang="en";
@@ -50,4 +50,16 @@ function openChat(prefill=""){const c=$("#chat");resetChat();c.innerHTML=`<div c
 function add(v,k){const m=$("#messages"),x=document.createElement("div");x.className="msg "+k;x.textContent=v;m.appendChild(x);m.scrollTop=m.scrollHeight}
 function closeChat(){const c=$("#chat");c.classList.remove("open");c.setAttribute("aria-hidden","true")}
 function toast(v){const x=document.createElement("div");x.className="toast";x.textContent=v;document.body.append(x);x.classList.add("show");setTimeout(()=>x.remove(),2800)}
-addEventListener("keydown",e=>{if(e.key==="Escape"){closeDrawer();closeChat()}});render();
+addEventListener("keydown",e=>{if(e.key==="Escape"){closeDrawer();closeChat()}});
+async function loadData(){
+ try{
+  const r=await fetch("/frontend-v2/data/services.json?v=20260920-v5",{cache:"no-store"});
+  if(!r.ok)throw new Error("Service catalog unavailable");
+  data=await r.json();
+  render();
+ }catch(e){
+  document.querySelector("#app").innerHTML='<main style="min-height:100dvh;display:grid;place-items:center;padding:24px;font-family:system-ui;background:#f7fcff;color:#122640"><section style="max-width:620px;text-align:center;background:#fff;border:1px solid #dce9f1;border-radius:24px;padding:32px;box-shadow:0 20px 60px rgba(31,87,122,.1)"><div style="font-size:12px;font-weight:900;letter-spacing:.16em;color:#2b9dce">COMPANY AI</div><h1 style="margin:10px 0">Loading Company AI…</h1><p style="color:#64778c">Please refresh the page. If this message remains, the service catalog could not be loaded.</p></section></main>';
+  console.error(e);
+ }
+}
+loadData();
