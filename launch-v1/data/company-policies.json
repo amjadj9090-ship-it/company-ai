@@ -1,0 +1,19 @@
+{
+  "version": "1.0",
+  "principles": [
+    "Customer requests are understood before routing.",
+    "Agents may plan and prepare work within their permissions.",
+    "Money movement, contracts, unusual discounts and irreversible production changes require approval.",
+    "QA can block a release when required checks fail.",
+    "Security can block risky changes.",
+    "Layan never claims an external action happened without verified backend confirmation."
+  ],
+  "approval": {
+    "owner_required": [
+      "money_movement",
+      "contract",
+      "irreversible_production_change",
+      "security_exception"
+    ]
+  }
+}
