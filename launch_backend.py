@@ -5,6 +5,8 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from launch_backend.orchestrator import plan
+from launch_backend.agents import public_registry
 
 ROOT=Path(__file__).resolve().parent
 APP_ROOT=ROOT/"launch-v1"
@@ -16,6 +18,12 @@ class ChatIn(BaseModel):
     message:str=Field(min_length=1,max_length=8000)
     language:str=Field(default="ar",max_length=10)
     history:list[dict[str,str]]=Field(default_factory=list)
+class ProjectIn(BaseModel):
+    title:str=Field(min_length=1,max_length=200)
+    contact:str=Field(min_length=3,max_length=240)
+    service:str=Field(default="",max_length=120)
+    brief:str=Field(default="",max_length=5000)
+
 class LeadIn(BaseModel):
     name:str=Field(min_length=1,max_length=120)
     contact:str=Field(min_length=3,max_length=240)
@@ -48,7 +56,11 @@ async def health(): return {"status":"ok","project":"company-ai-launch","version
 async def services(): return load("services.json")
 @app.get("/launch-api/agents")
 async def agents():
-    d=load("agents.json");return {"version":d["version"],"agents":[{"id":x["id"],"name":x["name"],"scope":x["scope"]} for x in d["agents"]]}
+    d=load("agents.json");return {"version":d["version"],"agents":public_registry()}
+
+@app.post("/launch-api/company/plan")
+async def company_plan(body:ChatIn):
+    return plan(body.message)
 
 @app.post("/launch-api/chat")
 async def chat(body:ChatIn):
@@ -68,7 +80,11 @@ async def chat(body:ChatIn):
 
 @app.post("/launch-api/leads")
 async def lead(body:LeadIn):
-    return {"accepted":True,"lead_id":str(uuid.uuid4()),"next":"sales"}
+    return {"accepted":True,"lead_id":str(uuid.uuid4()),"next":"sales","status":"new"}
+
+@app.post("/launch-api/projects")
+async def project(body:ProjectIn):
+    return {"accepted":True,"project_id":str(uuid.uuid4()),"status":"intake","next":"delivery"}
 
 @app.exception_handler(Exception)
 async def errors(request,exc): return JSONResponse(status_code=500,content={"error":"internal_error"})
