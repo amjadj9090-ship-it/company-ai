@@ -1,5 +1,5 @@
 from pathlib import Path
-import json, os, uuid
+import json, os, uuid, base64
 import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
@@ -18,6 +18,10 @@ class ChatIn(BaseModel):
     message:str=Field(min_length=1,max_length=8000)
     language:str=Field(default="ar",max_length=10)
     history:list[dict[str,str]]=Field(default_factory=list)
+class AudioChatIn(ChatIn):
+    audio_base64:str=Field(min_length=1,max_length=12000000)
+    mime_type:str=Field(default="audio/webm",max_length=80)
+
 class ProjectIn(BaseModel):
     title:str=Field(min_length=1,max_length=200)
     contact:str=Field(min_length=3,max_length=240)
@@ -95,6 +99,39 @@ async def chat(body:ChatIn):
     except Exception as exc:
         print(f"Gemini API exception: {type(exc).__name__}: {str(exc)[:800]}")
         return JSONResponse(status_code=502,content={"reply":"محرك ليان غير متاح مؤقتاً. لم يتم تنفيذ أي إجراء خارجي.","error":"ai_unavailable"})
+
+@app.post("/launch-api/chat-audio")
+async def chat_audio(body:AudioChatIn):
+    key=os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    if not key:
+        return JSONResponse(status_code=503,content={"reply":"محرك ليان غير مفعّل حالياً.","error":"ai_unavailable"})
+    try:
+        raw=base64.b64decode(body.audio_base64,validate=True)
+        if len(raw)>8_000_000:
+            return JSONResponse(status_code=413,content={"reply":"التسجيل الصوتي طويل جداً. جرّب جملة أقصر.","error":"audio_too_large"})
+        system=("You are Layan, the customer-facing AI assistant for Company AI. Understand the user's spoken language and dialect, transcribe it internally, then answer naturally in that same language. Preserve conversation context. Never claim money movement, contracts, deployments, or irreversible actions happened without verified backend confirmation.")
+        parts=[{"text":system+"\nListen to the attached audio and respond to what the user said. Do not describe the audio; answer the user directly."},
+               {"inlineData":{"mimeType":body.mime_type,"data":base64.b64encode(raw).decode("ascii")}}]
+        for x in safe_history(body.history):
+            role="model" if x["role"]=="assistant" else "user"
+            contents=[{"role":role,"parts":[{"text":x["content"]}]}]
+        payload={"contents":[{"role":"user","parts":parts}],"generationConfig":{"temperature":0.7,"maxOutputTokens":700}}
+        async with httpx.AsyncClient(timeout=40) as client:
+            r=await client.post("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent",
+                                headers={"x-goog-api-key":key,"Content-Type":"application/json"},json=payload)
+        if r.status_code>=400:
+            print(f"Gemini audio API error {r.status_code}: {r.text[:1200]}")
+            return JSONResponse(status_code=502,content={"reply":"محرك ليان غير متاح مؤقتاً. لم يتم تنفيذ أي إجراء خارجي.","error":"ai_unavailable"})
+        d=r.json()
+        parts=d.get("candidates",[{}])[0].get("content",{}).get("parts",[])
+        reply="".join(p.get("text","") for p in parts if p.get("text")).strip()
+        if not reply:
+            print(f"Gemini audio API empty response: {str(d)[:1200]}")
+            return JSONResponse(status_code=502,content={"reply":"ليان لم تتمكن من فهم التسجيل هذه المرة.","error":"ai_empty"})
+        return {"reply":reply,"session_id":str(uuid.uuid4())}
+    except Exception as exc:
+        print(f"Gemini audio API exception: {type(exc).__name__}: {str(exc)[:800]}")
+        return JSONResponse(status_code=502,content={"reply":"تعذر معالجة الصوت حالياً. لم يتم تنفيذ أي إجراء خارجي.","error":"ai_unavailable"})
 
 @app.post("/launch-api/leads")
 async def lead(body:LeadIn):
