@@ -48,7 +48,7 @@ class SecurityMiddleware(BaseHTTPMiddleware):
             cl=request.headers.get('content-length')
             if cl and int(cl)>self.max_body: return JSONResponse({'detail':'Request too large'},status_code=413)
         ip=(request.client.host if request.client else 'unknown')
-        if request.url.path.startswith('/api/central-ai/public-') or request.url.path in {'/api/leads/public','/api/voice-avatar/public-session'}:
+        if request.url.path.startswith('/api/central-ai/public-') or request.url.path in {'/api/leads/public','/api/voice-avatar/public-session','/api/brain/live-collaboration-test'}:
             import time; now_t=time.monotonic(); bucket=[t for t in self.hits.get(ip,[]) if now_t-t<self.window]
             if len(bucket)>=self.limit: return JSONResponse({'detail':'Rate limit exceeded. Please try again later.'},status_code=429,headers={'Retry-After':'60'})
             bucket.append(now_t); self.hits[ip]=bucket
