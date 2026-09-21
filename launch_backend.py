@@ -136,12 +136,26 @@ async def chat_audio(body:AudioChatIn):
         raw_reply=extract_reply(r.json())
         transcript=""
         reply=raw_reply
+        # Gemini may return valid JSON inside markdown fences or with surrounding text.
+        cleaned=raw_reply.strip()
+        if cleaned.startswith("```"):
+            cleaned=cleaned.strip("`").strip()
+            if cleaned.lower().startswith("json"):
+                cleaned=cleaned[4:].strip()
         try:
-            parsed=json.loads(raw_reply)
+            parsed=json.loads(cleaned)
             transcript=str(parsed.get("transcript","")).strip()
             reply=str(parsed.get("reply","")).strip()
         except Exception:
-            pass
+            try:
+                start=cleaned.find("{")
+                end=cleaned.rfind("}")
+                if start>=0 and end>start:
+                    parsed=json.loads(cleaned[start:end+1])
+                    transcript=str(parsed.get("transcript","")).strip()
+                    reply=str(parsed.get("reply","")).strip()
+            except Exception:
+                pass
         if not reply:
             print(f"Gemini audio API empty response: {r.text[:1600]}")
             return JSONResponse(status_code=502,content={"reply":"ليان لم تتمكن من فهم التسجيل هذه المرة.","error":"ai_empty"})
