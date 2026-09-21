@@ -102,7 +102,15 @@ async def chat(body:ChatIn):
         if r.status_code>=400:
             print(f"Gemini API error {r.status_code}: {r.text[:1600]}")
             return JSONResponse(status_code=502,content={"reply":"محرك ليان غير متاح مؤقتاً. لم يتم تنفيذ أي إجراء خارجي.","error":"ai_unavailable"})
-        reply=extract_reply(r.json())
+        raw_reply=extract_reply(r.json())
+        transcript=""
+        reply=raw_reply
+        try:
+            parsed=json.loads(raw_reply)
+            transcript=str(parsed.get("transcript","")).strip()
+            reply=str(parsed.get("reply","")).strip()
+        except Exception:
+            pass
         if not reply:
             print(f"Gemini API empty response: {r.text[:1600]}")
             return JSONResponse(status_code=502,content={"reply":"ليان لم تعطِ جواباً هذه المرة. لم يتم تنفيذ أي إجراء خارجي.","error":"ai_empty"})
@@ -124,7 +132,7 @@ async def chat_audio(body:AudioChatIn):
                 "Understand the user's spoken language and dialect, transcribe it internally, then answer naturally in that same language. "
                 "Be warm, concise and conversational. Preserve conversation context. "
                 "Never claim money movement, contracts, deployments, or irreversible actions happened without verified backend confirmation.")
-        parts=[{"text":system+"\nListen to the attached audio and respond directly to what the user said. Do not describe the audio."}]
+        parts=[{"text":system+"\nListen to the attached audio. Return a JSON object with exactly two string fields: transcript = the words you heard from the user, and reply = your natural answer to the user. Do not describe the audio. Do not add markdown fences."}]
         for x in safe_history(body.history):
             parts.append({"text":("Previous user: " if x["role"]=="user" else "Previous Layan: ")+x["content"]})
         parts.append({"inlineData":{"mimeType":body.mime_type,"data":base64.b64encode(raw).decode("ascii")}})
@@ -137,7 +145,7 @@ async def chat_audio(body:AudioChatIn):
         if not reply:
             print(f"Gemini audio API empty response: {r.text[:1600]}")
             return JSONResponse(status_code=502,content={"reply":"ليان لم تتمكن من فهم التسجيل هذه المرة.","error":"ai_empty"})
-        return {"reply":reply,"session_id":str(uuid.uuid4()),"model":GEMINI_MODEL}
+        return {"reply":reply,"transcript":transcript,"session_id":str(uuid.uuid4()),"model":GEMINI_MODEL}
     except Exception as exc:
         print(f"Gemini audio API exception: {type(exc).__name__}: {str(exc)[:800]}")
         return JSONResponse(status_code=502,content={"reply":"تعذر معالجة الصوت حالياً. لم يتم تنفيذ أي إجراء خارجي.","error":"ai_unavailable"})
