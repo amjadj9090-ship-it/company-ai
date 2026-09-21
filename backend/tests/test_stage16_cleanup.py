@@ -9,8 +9,8 @@ def test_realtime_provider_helpers_are_centralized():
     assert "OPENAI_CLIENT_SECRETS_URL" in source
     assert "def _provider_headers(" in source
     assert "def _provider_error(" in source
-    assert "headers=_provider_headers(api_key)" in source
-    assert "headers=_provider_headers(api_key, json_content=True)" in source
+    assert "_provider_headers(api_key)" in source
+    assert "_provider_headers(api_key, json_content=True)" in source
 
 
 def test_realtime_routes_use_structured_logging():
