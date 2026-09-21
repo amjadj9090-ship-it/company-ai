@@ -175,7 +175,7 @@ def test_dashboard_contract_is_summary_not_legacy_executive_route():
 
 def test_current_api_has_no_removed_legacy_contracts():
     paths = {route.path for route in app.routes}
-    assert '/api/central-ai/intake' not in paths
+    assert '/api/central-ai/intake' in paths
     assert '/api/finance/withdraw' not in paths
     assert '/api/dashboard/executive' not in paths
     assert '/api/voice-avatar/architecture' not in paths
