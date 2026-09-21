@@ -311,4 +311,6 @@ def manifest() -> dict[str, Any]:
         "selection_rule": "No model winner. Resolve disagreements with evidence, tests and verification.",
         "max_rounds": MAX_COLLABORATION_ROUNDS,
         "protected_operations": "Owner approval remains mandatory.",
+        "tool_capabilities": capability_manifest(),
+        "tool_policy": tool_policy_prompt(),
     }
