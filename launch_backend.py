@@ -12,7 +12,6 @@ ROOT=Path(__file__).resolve().parent
 APP_ROOT=ROOT/"launch-v1"
 DATA=APP_ROOT/"data"
 app=FastAPI(title="Company AI Launch Platform",docs_url=None,redoc_url=None)
-app.mount("/launch-v1",StaticFiles(directory=str(APP_ROOT)),name="launch-static")
 
 GEMINI_MODEL="gemini-3.5-flash-lite"
 GEMINI_URL=f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
@@ -56,6 +55,10 @@ async def headers(request:Request,call_next):
     r.headers["Permissions-Policy"]="camera=(),geolocation=(),payment=()"
     r.headers["Content-Security-Policy"]="default-src 'self';img-src 'self' data:;style-src 'self' 'unsafe-inline';script-src 'self';connect-src 'self' https://generativelanguage.googleapis.com;media-src 'self' blob:;"
     return r
+
+@app.get("/launch-image.svg")
+async def layan_image():
+    return FileResponse(APP_ROOT/"assets"/"layan-office.svg",media_type="image/svg+xml",headers={"Cache-Control":"no-store","Content-Disposition":"inline"})
 
 @app.get("/")
 async def root(): return FileResponse(APP_ROOT/"index.html",headers={"Cache-Control":"no-store"})
@@ -172,3 +175,4 @@ async def lead(body:LeadIn): return {"accepted":True,"lead_id":str(uuid.uuid4())
 async def project(body:ProjectIn): return {"accepted":True,"project_id":str(uuid.uuid4()),"status":"intake","next":"delivery"}
 @app.exception_handler(Exception)
 async def errors(request,exc): return JSONResponse(status_code=500,content={"error":"internal_error"})
+\napp.mount("/launch-v1",StaticFiles(directory=str(APP_ROOT)),name="launch-static")\n
