@@ -25,10 +25,9 @@
   .voice-active input{font-size:16px}
 }
 
-/* Layan image root fix v5 — stable CSS-rendered SVG visual */
-.office-frame img,.chat-visual img{display:none!important}
-.office-frame{background-image:url("/launch-v1/assets/layan-office.svg?v=7");background-size:contain;background-position:center;background-repeat:no-repeat;background-color:#eaf8ff}
-.chat-visual{background-image:url("/launch-v1/assets/layan-office.svg?v=7");background-size:contain;background-position:center;background-repeat:no-repeat;background-color:#eaf8ff}
+/* Layan image root fix v6 — render the real image elements */
+.office-frame{background-color:#eaf8ff}
+.chat-visual{background-color:#eaf8ff}
 
 /* Safe voice-live visual layer: UI only; audio engine remains unchanged */
 .voice-active .chat-visual{position:relative}
