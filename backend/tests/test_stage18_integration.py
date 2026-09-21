@@ -180,7 +180,7 @@ def test_stage18_frontend_backend_voice_and_lifecycle_wiring_remains_connected()
     assert "voiceChoice" in app_js
     assert "startLayanVoice" in realtime
     assert "getUserMedia" in realtime
-    assert "/api/voice-avatar/realtime-call" in realtime
+    assert "SpeechRecognition" in realtime
 
     paths = {route.path for route in app.routes}
     for path in (
