@@ -121,10 +121,12 @@ async def chat_audio(body:AudioChatIn):
         if len(raw)>8_000_000:
             return JSONResponse(status_code=413,content={"reply":"التسجيل الصوتي طويل جداً. جرّب جملة أقصر.","error":"audio_too_large"})
         system=("You are Layan, the customer-facing AI assistant for Company AI. "
-                "Understand the user's spoken language and dialect, transcribe it internally, then answer naturally in that same language. "
+                "Detect the language of the latest spoken request from the audio itself; do not use the UI language or older conversation language to choose the reply language. "
+                "Transcribe the latest speech internally, then answer naturally in exactly that same language and dialect/register when reasonably detectable. "
+                "If the user switches from Arabic to English, reply in English; if they switch from English to Arabic, reply in Arabic. Do not translate the user's words or mix languages unless the user explicitly asks for it. "
                 "Be warm, concise and conversational. Preserve conversation context. "
                 "Never claim money movement, contracts, deployments, or irreversible actions happened without verified backend confirmation.")
-        parts=[{"text":system+"\nListen to the attached audio. Return a JSON object with exactly two string fields: transcript = the words you heard from the user, and reply = your natural answer to the user. Do not describe the audio. Do not add markdown fences."}]
+        parts=[{"text":system+"\nListen to the attached audio. Return a JSON object with exactly two string fields: transcript = the words you heard from the user, and reply = your natural answer to the user. The reply language must be determined from the latest audio, not from the language field or previous turns. Do not describe the audio. Do not add markdown fences."}]
         for x in safe_history(body.history):
             parts.append({"text":("Previous user: " if x["role"]=="user" else "Previous Layan: ")+x["content"]})
         parts.append({"inlineData":{"mimeType":body.mime_type,"data":base64.b64encode(raw).decode("ascii")}})
