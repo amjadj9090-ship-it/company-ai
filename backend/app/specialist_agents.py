@@ -24,7 +24,7 @@ SPECIALISTS: dict[str, SpecialistAgent] = {
     "monitoring_operations": SpecialistAgent("monitoring_operations", "monitoring_operations", "inspect service health and operational risks", ("inspect_services", "define_alerts", "prepare_operations_plan")),
     "cybersecurity": SpecialistAgent("cybersecurity", "cybersecurity", "perform authorized defensive security planning", ("define_scope", "verify_authorization", "prepare_defensive_assessment"), True),
     "finance_legal": SpecialistAgent("finance_legal", "finance", "prepare protected finance/legal work for owner review", ("verify_request", "prepare_draft", "create_owner_approval"), True),
-    "central_brain": SpecialistAgent("central_brain", "central", "clarify and route business work", ("clarify_intent", "route_to_specialist", "record_decision")),
+    "central_brain": SpecialistAgent("central_brain", "central", "clarify and route business work", ("clarify_intent", "route_to_specialist", "record_decision")),\n    "gemini_agent": SpecialistAgent("gemini_agent", "gemini", "first-class Company AI Gemini agent for inspection, coding, testing, debugging and collaboration", ("inspect_company_ai", "inspect_layan", "propose_changes", "write_approved_code", "test_and_debug", "collaborate_with_company_ai_agents", "use_approved_company_tools")),
 }
 
 
