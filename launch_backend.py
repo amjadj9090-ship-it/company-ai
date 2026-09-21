@@ -21,9 +21,11 @@ class ChatIn(BaseModel):
     message:str=Field(min_length=1,max_length=8000)
     language:str=Field(default="ar",max_length=10)
     history:list[dict[str,str]]=Field(default_factory=list)
-class AudioChatIn(ChatIn):
+class AudioChatIn(BaseModel):
     audio_base64:str=Field(min_length=1,max_length=20000000)
     mime_type:str=Field(default="audio/webm",max_length=80)
+    language:str=Field(default="ar",max_length=10)
+    history:list[dict[str,str]]=Field(default_factory=list)
 class ProjectIn(BaseModel):
     title:str=Field(min_length=1,max_length=200)
     contact:str=Field(min_length=3,max_length=240)
