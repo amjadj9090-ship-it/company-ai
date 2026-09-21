@@ -8,7 +8,7 @@ it does not pick a model winner.
 """
 
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 import json
 import os
 import urllib.request
@@ -149,7 +149,7 @@ def _round_prompt(objective: str, phase: str, own: AgentOpinion | None = None,
         f"Teammate risks:\n{json.dumps(peer.risks if peer else [])}\n"
         "Keep strong parts from both sides. Correct factual or technical weaknesses. "
         "Explicitly incorporate useful teammate contributions. If disagreement remains, "
-        "state what must be tested or verified rather than choosing a winner.\n{schema}"
+        f"state what must be tested or verified rather than choosing a winner.\n{schema}"
     )
 
 
@@ -244,7 +244,6 @@ def run_council(department: str, message: str, *, protected: bool = False) -> di
         department, rounds[-1].chatgpt, rounds[-1].gemini,
         protected=protected, rounds=rounds,
     )
-    latest = rounds[-1]
     return {
         "status": decision.status,
         "department": department,
