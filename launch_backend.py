@@ -175,4 +175,5 @@ async def lead(body:LeadIn): return {"accepted":True,"lead_id":str(uuid.uuid4())
 async def project(body:ProjectIn): return {"accepted":True,"project_id":str(uuid.uuid4()),"status":"intake","next":"delivery"}
 @app.exception_handler(Exception)
 async def errors(request,exc): return JSONResponse(status_code=500,content={"error":"internal_error"})
-\napp.mount("/launch-v1",StaticFiles(directory=str(APP_ROOT)),name="launch-static")\n
+
+app.mount("/launch-v1",StaticFiles(directory=str(APP_ROOT)),name="launch-static")
