@@ -267,7 +267,13 @@ def decide(department: str, chatgpt: AgentOpinion, gemini: AgentOpinion,
 
 
 def run_council(department: str, message: str, *, protected: bool = False) -> dict[str, Any]:
-    """Run a bounded collaborative pair workflow with shared context and verification gates."""
+    """Run the low-consumption dual-agent workflow.
+
+    Default mode is intentionally one independent report from each model followed by
+    deterministic central synthesis. This avoids spending API credits on repeated
+    cross-review calls. When COMPANY_AI_COLLAB_MODE=full_cross_review is explicitly
+    enabled, the previous bounded multi-round workflow is used.
+    """
     if department not in DEPARTMENTS:
         raise ValueError(f"Unknown Company AI department: {department}")
 
@@ -275,11 +281,74 @@ def run_council(department: str, message: str, *, protected: bool = False) -> di
     errors: dict[str, str] = {}
     rounds: list[CollaborativeRound] = []
 
+    # Default: one independent report per teammate. Both receive identical evidence,
+    # but neither sees the other's report during its independent analysis.
+    if os.getenv("COMPANY_AI_COLLAB_MODE", "independent_reports").strip().lower() != "full_cross_review":
+        chatgpt: AgentOpinion | None = None
+        gemini: AgentOpinion | None = None
+        for name, fn in (("chatgpt", _chatgpt_call), ("gemini", _gemini_call)):
+            try:
+                opinion = fn(_round_prompt(objective, "initial"))
+                if name == "chatgpt":
+                    chatgpt = opinion
+                else:
+                    gemini = opinion
+            except Exception as exc:
+                errors[f"{name}_initial"] = f"{exc.__class__.__name__}: {exc}"
+
+        if chatgpt and gemini:
+            rounds.append(CollaborativeRound(1, "independent_reports", chatgpt, gemini))
+            decision = decide(
+                department, chatgpt, gemini, protected=protected, rounds=rounds,
+            )
+            return {
+                "status": decision.status,
+                "department": department,
+                "objective": objective,
+                "participants": ["chatgpt", "gemini"],
+                "collaboration_mode": "independent_reports_then_shared_synthesis",
+                "rounds_completed": 1,
+                "max_rounds": 1,
+                "rounds": [{
+                    "number": 1,
+                    "phase": "independent_reports",
+                    "chatgpt": _opinion_dict(chatgpt),
+                    "gemini": _opinion_dict(gemini),
+                }],
+                "shared_plan": decision.selected_plan,
+                "decision": {
+                    "selected_plan": decision.selected_plan,
+                    "rationale": (
+                        "Both teammates independently analyzed the identical evidence. "
+                        "The central coordinator synthesized their reports without ranking either model. "
+                        "Any unresolved disagreement must be settled by repository evidence and tests."
+                    ),
+                    "needs_owner_approval": decision.needs_owner_approval,
+                },
+                "verification": {
+                    "required": True,
+                    "rule": "Implement -> cross-review implementation -> automated tests -> fix failures -> final verification.",
+                },
+                "errors": errors,
+            }
+
+        return {
+            "status": "verification_required",
+            "department": department,
+            "objective": objective,
+            "participants": ["chatgpt", "gemini"],
+            "collaboration_mode": "independent_reports_then_shared_synthesis",
+            "rounds_completed": 0,
+            "max_rounds": 1,
+            "rounds": [],
+            "errors": errors,
+            "decision": None,
+        }
+
+    # Optional higher-consumption mode: explicit multi-round cross-review.
     try:
         chatgpt, gemini = _run_pair(_round_prompt(objective, "initial"))
         rounds.append(CollaborativeRound(1, "initial", chatgpt, gemini))
-
-        # Cross-review: each teammate sees the other's work and revises the same shared task.
         for number in range(2, max(1, MAX_COLLABORATION_ROUNDS) + 1):
             try:
                 chatgpt = _chatgpt_call(_round_prompt(objective, "cross_review", chatgpt, gemini))
