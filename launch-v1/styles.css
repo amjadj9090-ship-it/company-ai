@@ -33,3 +33,8 @@
 /* Fallback image root fix: render Layan directly as the panel background too */
 .office-frame{background-image:url("/launch-v1/assets/layan-office.svg?v=4");background-size:contain;background-position:center;background-repeat:no-repeat}
 .chat-visual{background-image:url("/launch-v1/assets/layan-office.svg?v=4");background-size:contain;background-position:center;background-repeat:no-repeat}
+
+/* Safe voice-live visual layer: UI only; audio engine remains unchanged */
+.voice-active .chat-visual{position:relative}
+.voice-active .chat-visual::after{content:"LIVE";position:absolute;right:8px;bottom:8px;background:#10253b;color:#fff;border-radius:999px;padding:4px 7px;font-size:9px;font-weight:900;letter-spacing:.08em;box-shadow:0 4px 12px rgba(0,0,0,.18);animation:voiceLivePulse 1.4s ease-in-out infinite}
+@keyframes voiceLivePulse{0%,100%{opacity:.72;transform:scale(1)}50%{opacity:1;transform:scale(1.05)}}
