@@ -73,7 +73,7 @@ def test_public_pages_remain_mobile_rtl_ready():
     css = (FRONTEND_V2 / "styles" / "base.css").read_text(encoding="utf-8")
     assert 'meta name="viewport"' in index
     assert "voiceChoice" in app_js
-    assert "@media(max-width:520px)" in css or "@media (max-width:520px)" in css
+    assert "@media(max-width:680px)" in css or "@media (max-width:680px)" in css
 
 
 def test_layan_voice_frontend_contract_remains_wired():
