@@ -115,7 +115,6 @@ function startAudioFallback(){
   });
 }
 async function chatAudio(blob){
-  add("🎙️ (رسالة صوتية)","user");
   const t=document.createElement("div");t.className="bubble assistant";t.textContent=S.lang==="ar"?"عم بفهم كلامك…":"Understanding…";messages.appendChild(t);messages.scrollTop=messages.scrollHeight;
   try{
     const buf=await blob.arrayBuffer();let binary="";const bytes=new Uint8Array(buf);const chunk=0x8000;
@@ -124,8 +123,10 @@ async function chatAudio(blob){
     const r=await fetch("/launch-api/chat-audio",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({audio_base64:audioBase64,mime_type:blob.type||"audio/webm",language:S.lang,history:S.history})});
     const d=await r.json();
     if(!r.ok){t.textContent=d.reply||"محرك ليان غير متاح حالياً.";stopVoice();return}
+    const transcript=(d.transcript||"").trim();
+    if(transcript)add(transcript,"user");else add("🎙️ (رسالة صوتية)","user");
     const reply=d.reply||"ليان ما قدرت تكمل الطلب حالياً.";t.textContent=reply;
-    S.history.push({role:"user",content:"[voice message]"},{role:"assistant",content:reply});S.history=S.history.slice(-12);
+    S.history.push({role:"user",content:transcript||"[voice message]"},{role:"assistant",content:reply});S.history=S.history.slice(-12);
     speak(reply);
   }catch(_){t.textContent="تعذر معالجة الصوت حالياً. لم يتم تنفيذ أي إجراء خارجي.";stopVoice()}
 }
