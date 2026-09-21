@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-"""Company AI dual-agent council: ChatGPT + Gemini per department.
+"""Collaborative ChatGPT + Gemini teams for Company AI.
 
-The council is governed by one non-negotiable objective: protect and advance
-Company AI's legitimate business interests while respecting security,
-authorization, legal/financial approval and verification requirements.
+Two agents are teammates on one shared task. They inspect, propose, cross-review,
+revise, converge, and verify. Central Brain coordinates the rounds and governance;
+it does not pick a model winner.
 """
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 import json
 import os
 import urllib.request
@@ -24,13 +24,21 @@ class AgentOpinion:
 
 
 @dataclass(frozen=True)
+class CollaborativeRound:
+    number: int
+    phase: str
+    chatgpt: AgentOpinion | None = None
+    gemini: AgentOpinion | None = None
+
+
+@dataclass(frozen=True)
 class CouncilDecision:
     department: str
     selected_plan: str
     rationale: str
     needs_owner_approval: bool
     participants: tuple[str, ...] = ("chatgpt", "gemini")
-    status: str = "selected"
+    status: str = "collaborative_plan_ready"
 
 
 DEPARTMENTS = (
@@ -41,6 +49,8 @@ DEPARTMENTS = (
     "cybersecurity", "monitoring_operations", "agent_builder", "voice_avatar",
 )
 
+MAX_COLLABORATION_ROUNDS = int(os.getenv("COMPANY_AI_COLLAB_ROUNDS", "2"))
+
 
 def agents_for_department(department: str) -> tuple[str, str]:
     if department not in DEPARTMENTS:
@@ -50,11 +60,12 @@ def agents_for_department(department: str) -> tuple[str, str]:
 
 def _company_objective(department: str, message: str) -> str:
     return (
-        "PRIMARY OBJECTIVE: advance the legitimate long-term interests of Company AI. "
-        "Choose the most correct, useful, secure, maintainable and evidence-supported plan. "
-        "Do not choose by model brand. Do not hide disagreement. "
-        "Never trade away security, authorization, legal compliance, owner approval or data protection "
-        "for speed or convenience. A claim of certainty is never evidence by itself. "
+        "PRIMARY BUSINESS OBJECTIVE: advance Company AI's legitimate long-term interests "
+        "by producing the most correct, useful, secure, maintainable and evidence-supported result. "
+        "ChatGPT and Gemini are teammates, not competitors. Neither model is the winner. "
+        "They must share relevant context, challenge weak assumptions, correct each other, "
+        "and converge on one shared plan. Never trade away security, authorization, legal compliance, "
+        "owner approval or data protection for speed. "
         f"Department: {department}. Request: {message.strip()}"
     )
 
@@ -70,17 +81,22 @@ def _post_json(url: str, payload: dict[str, Any], headers: dict[str, str], timeo
         return json.loads(response.read().decode("utf-8"))
 
 
-def _chatgpt_opinion(department: str, message: str) -> AgentOpinion:
+def _parse_opinion(agent: str, text: str) -> AgentOpinion:
+    parsed = json.loads(text)
+    return AgentOpinion(
+        agent,
+        str(parsed["proposal"]),
+        [str(x) for x in parsed.get("evidence", [])],
+        [str(x) for x in parsed.get("risks", [])],
+        max(0.0, min(1.0, float(parsed.get("confidence", 0)))),
+    )
+
+
+def _chatgpt_call(prompt: str) -> AgentOpinion:
     key = os.getenv("OPENAI_API_KEY", "").strip()
     if not key:
         raise RuntimeError("OPENAI_API_KEY is not configured")
     model = os.getenv("OPENAI_COUNCIL_MODEL", "gpt-5").strip() or "gpt-5"
-    prompt = (
-        _company_objective(department, message)
-        + "\nReturn JSON with exactly: proposal (string), evidence (array of strings), "
-        "risks (array of strings), confidence (number 0..1). "
-        "Evidence must be concrete and relevant; risks must include uncertainty or missing verification."
-    )
     data = _post_json(
         "https://api.openai.com/v1/responses",
         {"model": model, "input": prompt, "store": False},
@@ -92,28 +108,18 @@ def _chatgpt_opinion(department: str, message: str) -> AgentOpinion:
             for part in item.get("content", []) if isinstance(item, dict) else []:
                 if part.get("type") == "output_text":
                     text += str(part.get("text", ""))
-    parsed = json.loads(text)
-    return AgentOpinion(
-        "chatgpt", str(parsed["proposal"]), list(parsed.get("evidence", [])),
-        list(parsed.get("risks", [])), float(parsed.get("confidence", 0)),
-    )
+    return _parse_opinion("chatgpt", text)
 
 
-def _gemini_opinion(department: str, message: str) -> AgentOpinion:
+def _gemini_call(prompt: str) -> AgentOpinion:
     key = os.getenv("GEMINI_API_KEY", "").strip()
     if not key:
         raise RuntimeError("GEMINI_API_KEY is not configured")
     model = os.getenv("GEMINI_COUNCIL_MODEL", os.getenv("GEMINI_MODEL", "gemini-3.8-flash")).strip()
-    prompt = (
-        _company_objective(department, message)
-        + "\nReturn JSON only with exactly: proposal (string), evidence (array of strings), "
-        "risks (array of strings), confidence (number 0..1). "
-        "Evidence must be concrete and relevant; risks must include uncertainty or missing verification."
-    )
     data = _post_json(
         f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
         {
-            "system_instruction": {"parts": [{"text": "You are the Gemini member of the Company AI council. " + _company_objective(department, message)}]},
+            "system_instruction": {"parts": [{"text": "You are the Gemini teammate in Company AI. " + prompt}]},
             "contents": [{"role": "user", "parts": [{"text": prompt}]}],
             "generationConfig": {"temperature": 0.15, "responseMimeType": "application/json"},
         },
@@ -121,91 +127,187 @@ def _gemini_opinion(department: str, message: str) -> AgentOpinion:
     )
     parts = data.get("candidates", [{}])[0].get("content", {}).get("parts", [])
     text = "".join(str(p.get("text", "")) for p in parts if isinstance(p, dict)).strip()
-    parsed = json.loads(text)
-    return AgentOpinion(
-        "gemini", str(parsed["proposal"]), list(parsed.get("evidence", [])),
-        list(parsed.get("risks", [])), float(parsed.get("confidence", 0)),
+    return _parse_opinion("gemini", text)
+
+
+def _round_prompt(objective: str, phase: str, own: AgentOpinion | None = None,
+                  peer: AgentOpinion | None = None) -> str:
+    schema = (
+        "Return JSON only with exactly: proposal (string), evidence (array of strings), "
+        "risks (array of strings), confidence (number 0..1). "
+        "Proposal must describe the shared solution, not a model-specific victory."
+    )
+    if phase == "initial":
+        return f"{objective}\nPHASE: initial joint-team analysis.\n{schema}"
+    return (
+        f"{objective}\nPHASE: cross-review and convergence.\n"
+        f"Your previous proposal:\n{own.proposal if own else ''}\n"
+        f"Your previous evidence:\n{json.dumps(own.evidence if own else [])}\n"
+        f"Your previous risks:\n{json.dumps(own.risks if own else [])}\n"
+        f"Teammate proposal:\n{peer.proposal if peer else ''}\n"
+        f"Teammate evidence:\n{json.dumps(peer.evidence if peer else [])}\n"
+        f"Teammate risks:\n{json.dumps(peer.risks if peer else [])}\n"
+        "Keep strong parts from both sides. Correct factual or technical weaknesses. "
+        "Explicitly incorporate useful teammate contributions. If disagreement remains, "
+        "state what must be tested or verified rather than choosing a winner.\n{schema}"
     )
 
 
-def decide(department: str, chatgpt: AgentOpinion, gemini: AgentOpinion, *, protected: bool = False) -> CouncilDecision:
-    """Resolve disagreement by evidence, verification and risk—not model identity."""
+def _run_pair(prompt: str) -> tuple[AgentOpinion, AgentOpinion]:
+    errors: list[Exception] = []
+    results: dict[str, AgentOpinion] = {}
+    for name, fn in (("chatgpt", _chatgpt_call), ("gemini", _gemini_call)):
+        try:
+            results[name] = fn(prompt)
+        except Exception as exc:
+            errors.append(exc)
+    if errors:
+        raise RuntimeError("; ".join(f"{e.__class__.__name__}: {e}" for e in errors))
+    return results["chatgpt"], results["gemini"]
+
+
+def _build_shared_plan(rounds: list[CollaborativeRound]) -> str:
+    """Merge the latest team outputs without ranking either model."""
+    latest = rounds[-1]
+    g, m = latest.chatgpt, latest.gemini
+    if not g or not m:
+        return "verification_required"
+    if g.proposal.strip() == m.proposal.strip():
+        return g.proposal.strip()
+    return (
+        "SHARED COLLABORATIVE PLAN\n"
+        "1. Combine the useful requirements and implementation ideas from both teammates.\n"
+        f"- ChatGPT contribution: {g.proposal.strip()}\n"
+        f"- Gemini contribution: {m.proposal.strip()}\n"
+        "2. Preserve non-conflicting evidence from both teammates.\n"
+        "3. Resolve conflicts by testing, repository evidence, or explicit verification—not model identity.\n"
+        "4. Implement the shared plan, cross-review the implementation, run tests, and fix failures before release.\n"
+    )
+
+
+def decide(department: str, chatgpt: AgentOpinion, gemini: AgentOpinion,
+           *, protected: bool = False, rounds: list[CollaborativeRound] | None = None) -> CouncilDecision:
+    """Return the shared team plan; never select a model winner."""
+    shared = _build_shared_plan(rounds or [CollaborativeRound(1, "initial", chatgpt, gemini)])
     if protected:
         return CouncilDecision(
-            department, "review_required",
-            "Protected operation: both agents may prepare the plan, but owner approval is mandatory before execution.",
+            department, shared,
+            "Both teammates collaborate on preparation, but owner approval remains mandatory before execution.",
             True, status="owner_approval_required",
         )
-
-    gpt_score = len(chatgpt.evidence) - 2 * len(chatgpt.risks)
-    gem_score = len(gemini.evidence) - 2 * len(gemini.risks)
-    if chatgpt.proposal.strip() == gemini.proposal.strip():
-        return CouncilDecision(department, chatgpt.proposal, "Both agents independently produced the same plan; retain it and verify execution.", False)
-    if gpt_score == gem_score:
-        return CouncilDecision(
-            department, "review_required",
-            "The proposals remain materially different with no evidence-based separation. Do not guess; require additional verification.",
-            False, status="verification_required",
-        )
-    chosen = chatgpt if gpt_score > gem_score else gemini
-    other = gemini if chosen is chatgpt else chatgpt
     return CouncilDecision(
-        department, chosen.proposal,
-        f"Selected {chosen.agent} because its proposal had stronger evidence/risk support than {other.agent}. "
-        "The selected plan still requires validation before consequential execution.",
+        department, shared,
+        "ChatGPT and Gemini jointly contributed, cross-reviewed and converged. "
+        "Remaining conflicts are resolved by evidence/tests, not by choosing a model winner.",
         False,
     )
 
 
 def run_council(department: str, message: str, *, protected: bool = False) -> dict[str, Any]:
-    """Run both agents, preserve disagreement, and return a governed decision."""
+    """Run a bounded collaborative pair workflow with shared context and verification gates."""
     if department not in DEPARTMENTS:
         raise ValueError(f"Unknown Company AI department: {department}")
-    errors: dict[str, str] = {}
-    opinions: dict[str, AgentOpinion] = {}
-    for name, fn in (("chatgpt", _chatgpt_opinion), ("gemini", _gemini_opinion)):
-        try:
-            opinions[name] = fn(department, message)
-        except Exception as exc:
-            errors[name] = exc.__class__.__name__
 
-    if len(opinions) < 2:
+    objective = _company_objective(department, message)
+    errors: dict[str, str] = {}
+    rounds: list[CollaborativeRound] = []
+
+    try:
+        chatgpt, gemini = _run_pair(_round_prompt(objective, "initial"))
+        rounds.append(CollaborativeRound(1, "initial", chatgpt, gemini))
+
+        # Cross-review: each teammate sees the other's work and revises the same shared task.
+        for number in range(2, max(1, MAX_COLLABORATION_ROUNDS) + 1):
+            try:
+                chatgpt = _chatgpt_call(_round_prompt(objective, "cross_review", chatgpt, gemini))
+                gemini = _gemini_call(_round_prompt(objective, "cross_review", gemini, chatgpt))
+                rounds.append(CollaborativeRound(number, "cross_review", chatgpt, gemini))
+            except Exception as exc:
+                errors["cross_review"] = f"{exc.__class__.__name__}: {exc}"
+                break
+    except Exception as exc:
+        errors["initial_round"] = f"{exc.__class__.__name__}: {exc}"
+
+    if not rounds or not rounds[-1].chatgpt or not rounds[-1].gemini:
         return {
             "status": "verification_required",
             "department": department,
-            "objective": "Company AI legitimate business interest is the highest business objective within governance.",
+            "objective": objective,
             "participants": ["chatgpt", "gemini"],
-            "available_agents": list(opinions),
+            "collaboration_mode": "shared_task_cross_review_convergence",
+            "rounds_completed": len(rounds),
             "errors": errors,
             "decision": None,
         }
 
-    decision = decide(department, opinions["chatgpt"], opinions["gemini"], protected=protected)
+    decision = decide(
+        department, rounds[-1].chatgpt, rounds[-1].gemini,
+        protected=protected, rounds=rounds,
+    )
+    latest = rounds[-1]
     return {
         "status": decision.status,
         "department": department,
-        "objective": "Company AI legitimate business interest is the highest business objective within governance.",
+        "objective": objective,
         "participants": ["chatgpt", "gemini"],
-        "opinions": {
-            k: {"proposal": v.proposal, "evidence": v.evidence, "risks": v.risks, "confidence": v.confidence}
-            for k, v in opinions.items()
-        },
+        "collaboration_mode": "shared_task_cross_review_convergence",
+        "rounds_completed": len(rounds),
+        "max_rounds": MAX_COLLABORATION_ROUNDS,
+        "rounds": [
+            {
+                "number": r.number,
+                "phase": r.phase,
+                "chatgpt": _opinion_dict(r.chatgpt),
+                "gemini": _opinion_dict(r.gemini),
+            }
+            for r in rounds
+        ],
+        "shared_plan": decision.selected_plan,
         "decision": {
             "selected_plan": decision.selected_plan,
             "rationale": decision.rationale,
             "needs_owner_approval": decision.needs_owner_approval,
         },
+        "verification": {
+            "required": True,
+            "rule": "Implement -> cross-review -> automated tests -> fix failures -> final verification.",
+        },
         "errors": errors,
+    }
+
+
+def _opinion_dict(value: AgentOpinion | None) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    return {
+        "proposal": value.proposal,
+        "evidence": value.evidence,
+        "risks": value.risks,
+        "confidence": value.confidence,
     }
 
 
 def manifest() -> dict[str, Any]:
     return {
-        "name": "Company AI Dual-Agent Council",
+        "name": "Company AI Collaborative Dual-Agent Team",
         "model_pair": ["ChatGPT", "Gemini"],
         "departments": {d: ["ChatGPT", "Gemini"] for d in DEPARTMENTS},
+        "mode": "shared_task_cross_review_convergence",
         "primary_objective": "Company AI legitimate business interest, subject to security, authorization, law and owner approvals.",
-        "selection_rule": "Evidence + verification + risk + governance. Never model-brand preference.",
-        "disagreement_rule": "No forced winner when evidence is insufficient; request verification.",
+        "workflow": [
+            "inspect shared task",
+            "initial proposals",
+            "share context",
+            "cross-review",
+            "revise together",
+            "converge on shared plan",
+            "implement",
+            "cross-review implementation",
+            "test",
+            "fix",
+            "final verification",
+        ],
+        "selection_rule": "No model winner. Resolve disagreements with evidence, tests and verification.",
+        "max_rounds": MAX_COLLABORATION_ROUNDS,
         "protected_operations": "Owner approval remains mandatory.",
     }
