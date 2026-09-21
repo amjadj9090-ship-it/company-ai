@@ -66,7 +66,7 @@ def layan_realtime_hotfix():
 def layan_office_asset():
     """Serve the approved repository WebP asset instead of the legacy fallback."""
     try:
-        raw = (_FRONTEND.parent / "assets" / "layan-office.webp.txt").read_text(encoding="utf-8").strip()
-        return Response(content=base64.b64decode(raw), media_type="image/webp", headers={"Cache-Control":"no-store, no-cache, must-revalidate, max-age=0","Pragma":"no-cache"})
+        asset = _FRONTEND.parent / "assets" / "layan-office.webp"
+        return FileResponse(asset, media_type="image/webp", headers={"Cache-Control":"no-store, no-cache, must-revalidate, max-age=0","Pragma":"no-cache"})
     except Exception:
         return Response(content=_LAYAN_FALLBACK_SVG, media_type="image/svg+xml")
