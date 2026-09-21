@@ -25,14 +25,10 @@
   .voice-active input{font-size:16px}
 }
 
-/* Layan image visibility root fix */
-.office-frame img,.chat-visual img{display:block!important;visibility:visible!important;opacity:1!important}
-.office-frame img{object-fit:contain!important;background:#eaf8ff}
-.chat-visual img{object-fit:cover!important;object-position:center 42%!important;background:#eaf8ff}
-
-/* Fallback image root fix: render Layan directly as the panel background too */
-.office-frame{background-image:url("/launch-v1/assets/layan-office.svg?v=6");background-size:contain;background-position:center;background-repeat:no-repeat}
-.chat-visual{background-image:url("/launch-v1/assets/layan-office.svg?v=4");background-size:contain;background-position:center;background-repeat:no-repeat}
+/* Layan image root fix v5 — stable CSS-rendered SVG visual */
+.office-frame img,.chat-visual img{display:none!important}
+.office-frame{background-image:url("/launch-v1/assets/layan-office.svg?v=7");background-size:contain;background-position:center;background-repeat:no-repeat;background-color:#eaf8ff}
+.chat-visual{background-image:url("/launch-v1/assets/layan-office.svg?v=7");background-size:contain;background-position:center;background-repeat:no-repeat;background-color:#eaf8ff}
 
 /* Safe voice-live visual layer: UI only; audio engine remains unchanged */
 .voice-active .chat-visual{position:relative}
