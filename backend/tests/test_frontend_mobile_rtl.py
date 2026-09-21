@@ -24,7 +24,7 @@ def test_current_public_mobile_layout_contracts_exist():
     css = (FRONTEND_V2 / "styles" / "base.css").read_text(encoding="utf-8")
     assert "voiceChoice" in app_js
     assert "/assets/layan-office.webp" in app_js
-    assert "@media(max-width:520px)" in css or "@media (max-width:520px)" in css
+    assert "@media(max-width:680px)" in css or "@media (max-width:680px)" in css
 
 
 def test_admin_and_dashboard_mobile_overflow_protection_remains():
