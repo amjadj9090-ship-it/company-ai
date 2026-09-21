@@ -14,7 +14,7 @@ DATA=APP_ROOT/"data"
 app=FastAPI(title="Company AI Launch Platform",docs_url=None,redoc_url=None)
 app.mount("/launch-v1",StaticFiles(directory=str(APP_ROOT)),name="launch-static")
 
-GEMINI_MODEL="gemini-2.5-flash-lite"
+GEMINI_MODEL="gemini-3.5-flash-lite"
 GEMINI_URL=f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
 
 class ChatIn(BaseModel):
