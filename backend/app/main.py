@@ -9,13 +9,14 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import FileResponse, JSONResponse
 from pydantic import BaseModel,Field,EmailStr
 from .realtime_routes import router as layan_realtime_router
+from .academy import router as academy_router
 import jwt
 from jwt import InvalidTokenError as JWTError
 from sqlalchemy import create_engine,String,Integer,DateTime,Text,select
 from sqlalchemy.orm import DeclarativeBase,Mapped,mapped_column,Session
 from sqlalchemy.types import JSON
 
-VERSION='8.5.1-security-test'
+VERSION='8.5.2-academy'
 DATABASE_URL=os.getenv('DATABASE_URL','sqlite:///./company_ai.db').strip()
 JWT_SECRET=os.getenv('JWT_SECRET',''); JWT_ALG='HS256'; ACCESS_MINUTES=int(os.getenv('ACCESS_TOKEN_MINUTES','30'))
 ENVIRONMENT=os.getenv('ENVIRONMENT','development').strip().lower()
@@ -137,6 +138,7 @@ ASSETS_DIR=os.path.abspath(os.path.join(os.path.dirname(__file__),'..','..','ass
 app.mount('/assets', StaticFiles(directory=ASSETS_DIR), name='assets')
 app.mount('/frontend-assets', StaticFiles(directory=FRONTEND_DIR), name='frontend-assets')
 app.mount('/frontend-v2', StaticFiles(directory=PUBLIC_FRONTEND_DIR), name='frontend-v2')
+app.include_router(academy_router)
 @app.get('/layan-realtime-hotfix.js',include_in_schema=False)
 def layan_realtime_hotfix(): return FileResponse(os.path.join(FRONTEND_DIR,'layan-realtime-hotfix.js'),media_type='application/javascript')
 @app.get('/',include_in_schema=False)
