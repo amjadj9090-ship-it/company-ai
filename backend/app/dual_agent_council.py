@@ -100,7 +100,7 @@ def _chatgpt_call(prompt: str) -> AgentOpinion:
     model = os.getenv("OPENAI_COUNCIL_MODEL", "gpt-5").strip() or "gpt-5"
     data = _post_json(
         "https://api.openai.com/v1/responses",
-        {"model": model, "input": prompt, "store": False},
+        {"model": model, "input": prompt, "store": False, "tools": openai_tools(), "tool_choice": "auto"},
         {"Authorization": f"Bearer {key}"},
     )
     text = str(data.get("output_text", "")).strip()
@@ -123,6 +123,7 @@ def _gemini_call(prompt: str) -> AgentOpinion:
             "system_instruction": {"parts": [{"text": "You are the Gemini teammate in Company AI. " + prompt}]},
             "contents": [{"role": "user", "parts": [{"text": prompt}]}],
             "generationConfig": {"temperature": 0.15, "responseMimeType": "application/json"},
+            "tools": gemini_tools(),
         },
         {"x-goog-api-key": key},
     )
