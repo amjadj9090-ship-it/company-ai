@@ -17,7 +17,8 @@ async function keepScreenAwake(){
   try{if(wakeLock&&wakeLock.released===false)return;wakeLock=await navigator.wakeLock.request("screen");wakeLock.addEventListener("release",()=>{wakeLock=null})}catch(_){}
 }
 async function releaseScreenWake(){try{if(wakeLock){await wakeLock.release()}}catch(_){}wakeLock=null}
-function speak(text){if(!speechSynthesis){if(voiceSession)setTimeout(startAudioFallback,250);return;}const u=new SpeechSynthesisUtterance(text);u.lang=S.lang==="ar"?"ar-SA":S.lang;u.rate=.96;speechSynthesis.cancel();u.onend=()=>{if(voiceSession){setTimeout(()=>{keepScreenAwake();startAudioFallback()},250)}};speechSynthesis.speak(u)}
+function speechLanguage(text){const s=String(text||"");const ar=(s.match(/[\u0600-\u06FF]/g)||[]).length;const latin=(s.match(/[A-Za-z]/g)||[]).length;if(ar>latin)return "ar-SA";if(latin>ar)return "en-US";return S.lang==="ar"?"ar-SA":S.lang;}
+function speak(text){if(!speechSynthesis){if(voiceSession)setTimeout(startAudioFallback,250);return;}const u=new SpeechSynthesisUtterance(text);u.lang=speechLanguage(text);u.rate=.96;speechSynthesis.cancel();u.onend=()=>{if(voiceSession){setTimeout(()=>{keepScreenAwake();startAudioFallback()},250)}};speechSynthesis.speak(u)}
 document.addEventListener("visibilitychange",()=>{if(voiceSession&&document.visibilityState==="visible")keepScreenAwake()});
 async function chat(text,fromVoice=false){
   add(text,"user");input.value="";clearVoiceTimer();
