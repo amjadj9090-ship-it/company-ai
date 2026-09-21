@@ -57,6 +57,42 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         if os.getenv('ENVIRONMENT')=='production': response.headers['Strict-Transport-Security']='max-age=31536000; includeSubDomains'
         return response
 app.add_middleware(SecurityMiddleware)
+
+def _run_live_council_smoke() -> None:
+    import logging
+    from .dual_agent_council import run_council
+    message = (
+        "إعادة البحث الشامل الآن لاختبار طريقة العمل المتفق عليها داخل Company AI. "
+        "يجب على ChatGPT وGemini أن يعملا كزميلين داخل نفس الشركة على نفس المهمة: "
+        "يبحث كل واحد بشكل مستقل باستخدام أدوات البحث المتاحة، يجمع الأدلة والمصادر، "
+        "يقدم تقريره، ثم يقرأ تقرير الزميل وينقده ويصححه، ثم يعيدان الصياغة حتى يصل الفريق "
+        "إلى خطة مشتركة. يجب أن يذكر كل طرف ما وجده وما الذي تغير بسبب مراجعة الزميل. "
+        "المطلوب اختبار أن التعاون الحقيقي بينهما يعمل، لا مجرد وصف نظري له. "
+        "لا تنفيذ مالي أو قانوني ولا تغيير صلاحيات."
+    )
+    try:
+        result = run_council("central_brain", message, protected=False)
+        logging.getLogger("company_ai.dual_agent_smoke").warning(
+            "LIVE_DUAL_AGENT_SMOKE_RESULT %s",
+            json.dumps({
+                "status": result.get("status"),
+                "participants": result.get("participants"),
+                "rounds_completed": result.get("rounds_completed"),
+                "max_rounds": result.get("max_rounds"),
+                "errors": result.get("errors"),
+                "shared_plan": result.get("shared_plan", "")[:1200],
+                "chatgpt_proposal": (((result.get("rounds") or [{}])[-1].get("chatgpt") or {}).get("proposal", ""))[:1200],
+                "gemini_proposal": (((result.get("rounds") or [{}])[-1].get("gemini") or {}).get("proposal", ""))[:1200],
+            }, ensure_ascii=False),
+        )
+    except Exception as exc:
+        logging.getLogger("company_ai.dual_agent_smoke").exception(
+            "LIVE_DUAL_AGENT_SMOKE_ERROR %s", exc
+        )
+
+if os.getenv("RUN_LIVE_COUNCIL_SMOKE", "").strip().lower() == "true":
+    import threading
+    threading.Thread(target=_run_live_council_smoke, name="dual-agent-live-smoke", daemon=True).start()
 trusted=[x.strip() for x in os.getenv('TRUSTED_HOSTS','').split(',') if x.strip()]
 if trusted:
     from starlette.middleware.trustedhost import TrustedHostMiddleware; app.add_middleware(TrustedHostMiddleware,allowed_hosts=trusted)
