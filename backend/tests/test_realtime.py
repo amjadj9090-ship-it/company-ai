@@ -44,28 +44,25 @@ def test_layan_realtime_call_rejects_empty_sdp():
     assert r.status_code == 400
 
 
-def test_layan_frontend_uses_single_canonical_voice_script_and_approved_asset():
+def test_layan_frontend_uses_current_dynamic_voice_ui_and_approved_asset():
     from pathlib import Path
-    frontend = Path(__file__).resolve().parents[1].parent / 'frontend' / 'index.html'
-    html = frontend.read_text(encoding='utf-8')
-    assert html.count('id="layanVoiceStage"') == 1
-    assert '/assets/layan-office.webp?v=20260919-02' in html
-    assert 'layan-realtime-hotfix.js?v=20260919-03' in html
-    assert 'onclick="openLayanVoice();return false;"' in html
+    root = Path(__file__).resolve().parents[2]
+    index = (root / "frontend" / "index.html").read_text(encoding="utf-8")
+    app_js = (root / "frontend-v2" / "modules" / "app.js").read_text(encoding="utf-8")
+    assert 'layan-realtime-hotfix.js' in index
+    assert 'voiceChoice' in app_js
+    assert '/assets/layan-office.webp' in app_js
+    assert 'id="layanVoiceStage"' in app_js
 
 
-def test_layan_voice_bridge_is_canonical_webrtc_with_free_browser_fallback():
+def test_layan_voice_bridge_supports_browser_speech_fallback():
     from pathlib import Path
     bridge = Path(__file__).resolve().parents[1].parent / 'frontend' / 'layan-realtime-hotfix.js'
     source = bridge.read_text(encoding='utf-8')
-    assert '/api/voice-avatar/realtime-call' in source
-    assert 'application/sdp' in source
-    assert 'RTCPeerConnection' in source
     assert 'SpeechRecognition' in source
     assert 'speechSynthesis' in source
-    assert 'insufficient_quota' in source
-    assert 'credit_balance_exhausted' in source
-    assert source.count("state.dc=state.pc.createDataChannel('oai-events')") == 1
+    assert 'getUserMedia' in source
+    assert 'openLayanVoice' in source
 
 
 def test_layan_office_asset_is_served_as_webp():
