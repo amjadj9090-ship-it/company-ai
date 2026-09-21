@@ -102,15 +102,7 @@ async def chat(body:ChatIn):
         if r.status_code>=400:
             print(f"Gemini API error {r.status_code}: {r.text[:1600]}")
             return JSONResponse(status_code=502,content={"reply":"محرك ليان غير متاح مؤقتاً. لم يتم تنفيذ أي إجراء خارجي.","error":"ai_unavailable"})
-        raw_reply=extract_reply(r.json())
-        transcript=""
-        reply=raw_reply
-        try:
-            parsed=json.loads(raw_reply)
-            transcript=str(parsed.get("transcript","")).strip()
-            reply=str(parsed.get("reply","")).strip()
-        except Exception:
-            pass
+        reply=extract_reply(r.json())
         if not reply:
             print(f"Gemini API empty response: {r.text[:1600]}")
             return JSONResponse(status_code=502,content={"reply":"ليان لم تعطِ جواباً هذه المرة. لم يتم تنفيذ أي إجراء خارجي.","error":"ai_empty"})
@@ -141,7 +133,15 @@ async def chat_audio(body:AudioChatIn):
         if r.status_code>=400:
             print(f"Gemini audio API error {r.status_code}: {r.text[:1600]}")
             return JSONResponse(status_code=502,content={"reply":"محرك ليان غير متاح مؤقتاً. لم يتم تنفيذ أي إجراء خارجي.","error":"ai_unavailable"})
-        reply=extract_reply(r.json())
+        raw_reply=extract_reply(r.json())
+        transcript=""
+        reply=raw_reply
+        try:
+            parsed=json.loads(raw_reply)
+            transcript=str(parsed.get("transcript","")).strip()
+            reply=str(parsed.get("reply","")).strip()
+        except Exception:
+            pass
         if not reply:
             print(f"Gemini audio API empty response: {r.text[:1600]}")
             return JSONResponse(status_code=502,content={"reply":"ليان لم تتمكن من فهم التسجيل هذه المرة.","error":"ai_empty"})
