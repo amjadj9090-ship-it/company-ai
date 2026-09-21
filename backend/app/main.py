@@ -96,7 +96,9 @@ def seed(s):
                 add(s,'agent',{
                     'name':name,'provider':provider,'department':department,'status':'ready',
                     'description':f'{provider.title()} agent for {department}',
-                    'permissions':['read','propose','collaborate','verify'],
+                    'permissions':['read','propose','collaborate','verify','use_all_supported_provider_tools'],
+                    'tool_access':'full_supported_provider_surface',
+                    'tool_policy':'enable_all_supported_tools; gate_only_for_safety_authorization_provider_limits_or_missing_executor',
                     'company_interest_priority':True,
                     'owner_approval_required_for':['money_movement','binding_contract','legal_commitment','non_standard_financial_commitment'],
                     'forbidden':['secret_exfiltration','self_permission_escalation','governance_bypass']
