@@ -1,0 +1,74 @@
+name: Company AI Stage 0 Dual-Agent Verification
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dual-agent-stage0:
+    runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      COMPANY_AI_COLLAB_ROUNDS: "2"
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r backend/requirements.txt
+
+      - name: Verify both agent credentials exist
+        run: |
+          test -n "$OPENAI_API_KEY" || { echo "OPENAI_API_KEY GitHub secret is missing"; exit 1; }
+          test -n "$GEMINI_API_KEY" || { echo "GEMINI_API_KEY GitHub secret is missing"; exit 1; }
+
+      - name: Run full backend tests
+        working-directory: backend
+        run: pytest -q
+
+      - name: Run ChatGPT + Gemini Stage 0 audit
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import sys
+
+          sys.path.insert(0, os.path.abspath("backend"))
+          from app.dual_agent_council import run_council
+
+          result = run_council(
+              "central_brain",
+              """Re-audit Stage 0 from the root cause.
+              Inspect the shared repository evidence you received.
+              Re-check the fixes for Central Brain routing/intake, Gemini integration,
+              Layan asset serving, brittle/outdated tests, and production/deployment
+              mismatch assumptions. Both teammates must identify errors independently,
+              cross-review each other, and produce one shared evidence-based plan.
+              Do not declare success merely because tests pass.""",
+          )
+          with open("stage0-dual-agent-report.json", "w", encoding="utf-8") as f:
+              json.dump(result, f, ensure_ascii=False, indent=2)
+          print(json.dumps(result, ensure_ascii=False, indent=2))
+          if result.get("status") == "verification_required":
+              raise SystemExit(1)
+          PY
+
+      - name: Upload dual-agent audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage0-dual-agent-report
+          path: stage0-dual-agent-report.json
