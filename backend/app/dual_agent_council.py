@@ -48,6 +48,8 @@ DEPARTMENTS = (
     "qa", "operations", "analytics", "finance", "legal", "security",
     "partnerships", "product", "seo", "entrepreneurship", "website_growth",
     "cybersecurity", "monitoring_operations", "agent_builder", "voice_avatar",
+    # Canonical routing aliases used by the Central Brain and legacy integrations.
+    "digital_services", "sales_crm", "finance_legal", "central_brain",
 )
 
 MAX_COLLABORATION_ROUNDS = int(os.getenv("COMPANY_AI_COLLAB_ROUNDS", "2"))
