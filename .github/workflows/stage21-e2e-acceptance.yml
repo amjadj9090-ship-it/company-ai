@@ -54,7 +54,7 @@ jobs:
             const micAllowed=await page.evaluate(()=>document.permissionsPolicy?.allowsFeature?.('microphone') ?? null);
             console.log(`PERMISSIONS_POLICY=${pp}`);
             console.log(`MICROPHONE_ALLOWED=${micAllowed}`);
-            if((await page.title())!=='COMPANY AI — Global Business OS') throw new Error('unexpected page title');
+            if((await page.title())!=='Company AI') throw new Error(`unexpected page title: ${await page.title()}`);
             if(!(await page.locator('.layanHero').count())) throw new Error('Layan hero missing');
             if((await page.locator('.layanChoice').count())<2) throw new Error('Layan interaction choices missing');
             if(!(await page.locator('.voiceChoice').count())) throw new Error('voice choice missing');
