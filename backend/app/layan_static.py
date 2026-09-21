@@ -67,6 +67,6 @@ def layan_office_asset():
     """Serve the approved repository WebP asset instead of the legacy fallback."""
     try:
         asset = _FRONTEND.parent / "assets" / "layan-office.webp"
-        return FileResponse(asset, media_type="image/webp", headers={"Cache-Control":"no-store, no-cache, must-revalidate, max-age=0","Pragma":"no-cache"})
+        return Response(content=asset.read_bytes(), media_type="image/webp", headers={"Cache-Control":"no-store, no-cache, must-revalidate, max-age=0","Pragma":"no-cache"})
     except Exception:
         return Response(content=_LAYAN_FALLBACK_SVG, media_type="image/svg+xml")
