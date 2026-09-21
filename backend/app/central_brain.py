@@ -265,6 +265,30 @@ def central_ai_execute(request: dict[str, Any]) -> BrainResponse:
         raise HTTPException(status_code=500, detail=f"Specialist execution failed: {exc.__class__.__name__}") from exc
 
 
+@router.post("/api/central-ai/intake", response_model=BrainResponse)
+def central_ai_intake(request: BrainRequest) -> BrainResponse:
+    """Public/voice intake: classify and persist a plan, never execute protected work."""
+    decision = plan(request.message, request.context)
+    persisted = _persist_orchestration(request, decision)
+    return BrainResponse(
+        status="ok",
+        decision={
+            "department": decision.department,
+            "intent": decision.intent,
+            "priority": decision.priority,
+            "approval_mode": decision.approval_mode,
+            "required_approval": decision.required_approval,
+            "next_actions": list(decision.next_actions),
+            **persisted,
+        },
+        guardrails={
+            "owner_approval_required_for_sensitive_commitments": True,
+            "money_movement_allowed_without_owner": False,
+            "contract_signing_allowed_without_owner": False,
+        },
+    )
+
+
 @router.post("/api/brain/plan", response_model=BrainResponse)
 def brain_plan(request: BrainRequest) -> BrainResponse:
     decision = plan(request.message, request.context)
