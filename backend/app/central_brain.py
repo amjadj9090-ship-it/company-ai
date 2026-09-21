@@ -289,6 +289,23 @@ def central_ai_intake(request: BrainRequest) -> BrainResponse:
     )
 
 
+@router.get("/api/brain/live-collaboration-test", include_in_schema=False)
+def live_collaboration_test() -> dict[str, Any]:
+    """One fixed, rate-limited production smoke test for the real ChatGPT+Gemini council."""
+    import os
+    if os.getenv("LIVE_COUNCIL_TEST_ENABLED", "").strip().lower() != "true":
+        raise HTTPException(status_code=404, detail="Not found")
+    message = (
+        "إعادة بحث شامل لاختبار طريقة عمل Company AI نفسها: "
+        "ChatGPT وGemini يعملان معاً داخل الشركة على نفس المهمة، "
+        "كل واحد يجمع الأدلة ويحللها، ثم يشارك النتيجة، يراجع الآخر، "
+        "ويعدلان الخطة حتى الوصول إلى خطة مشتركة قابلة للتحقق. "
+        "المطلوب اختبار هذه الطريقة نفسها وتحديد ما إذا كان التعاون الحقيقي يعمل "
+        "وما الذي يجب إصلاحه. لا تنفيذ مالي أو قانوني."
+    )
+    decision = plan(message, {})
+    return run_council(decision.department, message, protected=False)
+
 @router.post("/api/brain/plan", response_model=BrainResponse)
 def brain_plan(request: BrainRequest) -> BrainResponse:
     decision = plan(request.message, request.context)
