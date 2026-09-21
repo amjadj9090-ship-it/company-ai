@@ -11,6 +11,7 @@ from typing import Any
 import json
 import os
 import urllib.request
+from .agent_tooling import capability_manifest, gemini_tools, tool_policy_prompt
 
 
 @dataclass(frozen=True)
@@ -59,6 +60,7 @@ def manifest() -> dict[str, Any]:
         "owner_approval_required": list(POLICY.owner_approval_required),
         "forbidden": list(POLICY.forbidden),
         "scope": "Company AI internal agent; includes Layan inspection, debugging and improvement.",
+        "tool_capabilities": capability_manifest()["gemini"],
     }
 
 
@@ -91,12 +93,13 @@ def ask(message: str, history: list[dict[str, Any]] | None = None) -> str:
         "Never move money, sign a binding contract, make a legal commitment, or make a non-standard financial commitment without owner approval. "
         "Never reveal or change secrets/API keys except through the approved secret-management workflow. "
         "Never escalate your own permissions or bypass governance. "
-        "Do not claim an action was completed unless Company AI actually completed it."
+        "Do not claim an action was completed unless Company AI actually completed it. " + tool_policy_prompt()
     )
     payload = {
         "system_instruction": {"parts": [{"text": system}]},
         "contents": contents,
         "generationConfig": {"temperature": 0.35, "maxOutputTokens": 1200},
+        "tools": gemini_tools(),
     }
     model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip() or "gemini-3.8-flash"
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
