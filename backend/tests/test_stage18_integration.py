@@ -171,12 +171,13 @@ def test_stage18_sensitive_boundary_survives_brain_and_finance_layers():
 def test_stage18_frontend_backend_voice_and_lifecycle_wiring_remains_connected():
     root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     index = open(os.path.join(root, "frontend", "index.html"), encoding="utf-8").read()
+    app_js = open(os.path.join(root, "frontend-v2", "modules", "app.js"), encoding="utf-8").read()
     realtime = open(
         os.path.join(root, "frontend", "layan-realtime-hotfix.js"), encoding="utf-8"
     ).read()
 
     assert "layan-realtime-hotfix.js" in index
-    assert "voiceChoice" in index
+    assert "voiceChoice" in app_js
     assert "startLayanVoice" in realtime
     assert "getUserMedia" in realtime
     assert "/api/voice-avatar/realtime-call" in realtime
