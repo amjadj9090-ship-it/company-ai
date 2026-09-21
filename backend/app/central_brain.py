@@ -267,6 +267,7 @@ def central_ai_execute(request: dict[str, Any]) -> BrainResponse:
 @router.post("/api/brain/plan", response_model=BrainResponse)
 def brain_plan(request: BrainRequest) -> BrainResponse:
     decision = plan(request.message, request.context)
+    council = run_council(decision.department, request.message, protected=decision.required_approval)
     return BrainResponse(
         status="ok",
         decision={
@@ -278,10 +279,14 @@ def brain_plan(request: BrainRequest) -> BrainResponse:
             "next_actions": list(decision.next_actions),
             "channel": request.channel,
             "language": request.language,
+            "council": council,
         },
         guardrails={
             "owner_approval_required_for_sensitive_commitments": True,
             "money_movement_allowed_without_owner": False,
             "contract_signing_allowed_without_owner": False,
+            "company_interest_is_primary_objective": True,
+            "no_forced_model_winner_without_sufficient_evidence": True,
+            "council_selection_requires_verification": True,
         },
     )
