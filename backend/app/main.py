@@ -87,7 +87,7 @@ def seed(s):
     else:
         owner.name=owner.name or 'Owner'; owner.role='admin'; owner.active=True
         if owner_password and owner_password!='change-me' and not verify(owner_password,owner.password_hash): owner.password_hash=pwd_hash(owner_password)
-    agents=['central','sales','marketing','lead_generation','growth','trade','customer_support','web_design','app_development','uiux','frontend','qa','operations','analytics','finance','legal','security','partnerships','product','seo','entrepreneurship','website_growth','cybersecurity','monitoring_operations','agent_builder']
+    agents=['central','sales','marketing','lead_generation','growth','trade','customer_support','web_design','app_development','uiux','frontend','qa','operations','analytics','finance','legal','security','partnerships','product','seo','entrepreneurship','website_growth','cybersecurity','monitoring_operations','agent_builder','gemini']
     for n in agents:
         exists=s.scalar(select(Entity).where(Entity.kind=='agent',Entity.data['name'].as_string()==n))
         if not exists: add(s,'agent',{'name':n,'status':'ready','description':f'{n} specialist agent','permissions':['read','propose']})
