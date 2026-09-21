@@ -12,6 +12,8 @@ from typing import Any
 import json
 import os
 import urllib.request
+import urllib.error
+import time
 from .agent_tooling import capability_manifest, gemini_tools, openai_tools, tool_policy_prompt
 
 
@@ -122,8 +124,19 @@ def _post_json(url: str, payload: dict[str, Any], headers: dict[str, str], timeo
         headers={"Content-Type": "application/json", **headers},
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=timeout) as response:
-        return json.loads(response.read().decode("utf-8"))
+    last_error: Exception | None = None
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode("utf-8", errors="replace")
+            last_error = RuntimeError(f"HTTP {exc.code}: {body[:2000]}")
+            if exc.code == 429 and attempt < 2:
+                time.sleep(2 ** attempt)
+                continue
+            raise last_error from exc
+    raise last_error or RuntimeError("HTTP request failed")
 
 
 def _parse_opinion(agent: str, text: str) -> AgentOpinion:
@@ -144,7 +157,7 @@ def _chatgpt_call(prompt: str) -> AgentOpinion:
     model = os.getenv("OPENAI_COUNCIL_MODEL", "gpt-5").strip() or "gpt-5"
     data = _post_json(
         "https://api.openai.com/v1/responses",
-        {"model": model, "input": prompt, "store": False, "tools": openai_tools(), "tool_choice": "auto"},
+        {"model": model, "input": prompt, "store": False, "tools": [{"type": "web_search_preview"}], "tool_choice": "auto"},
         {"Authorization": f"Bearer {key}"},
     )
     text = str(data.get("output_text", "")).strip()
@@ -162,17 +175,21 @@ def _gemini_call(prompt: str) -> AgentOpinion:
         raise RuntimeError("GEMINI_API_KEY is not configured")
     model = os.getenv("GEMINI_COUNCIL_MODEL", os.getenv("GEMINI_MODEL", "gemini-3.8-flash")).strip()
     data = _post_json(
-        f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+        "https://generativelanguage.googleapis.com/v1beta/interactions",
         {
-            "system_instruction": {"parts": [{"text": "You are the Gemini teammate in Company AI. " + prompt}]},
-            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": 0.15, "responseMimeType": "application/json"},
-            "tools": gemini_tools(),
+            "model": model,
+            "input": prompt,
+            "tools": [{"type": "google_search"}],
         },
         {"x-goog-api-key": key},
     )
-    parts = data.get("candidates", [{}])[0].get("content", {}).get("parts", [])
-    text = "".join(str(p.get("text", "")) for p in parts if isinstance(p, dict)).strip()
+    parts: list[str] = []
+    for step in data.get("steps", []):
+        if isinstance(step, dict) and step.get("type") == "model_output":
+            for content in step.get("content", []):
+                if isinstance(content, dict) and content.get("type") == "text":
+                    parts.append(str(content.get("text", "")))
+    text = "".join(parts).strip() or str(data.get("output_text", "")).strip()
     return _parse_opinion("gemini", text)
 
 
