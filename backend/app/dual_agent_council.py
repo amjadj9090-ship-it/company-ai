@@ -61,7 +61,45 @@ def agents_for_department(department: str) -> tuple[str, str]:
     return ("chatgpt", "gemini")
 
 
+def _shared_repository_context() -> str:
+    """Build one sanitized repository snapshot shared identically with both agents."""
+    root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    paths = (
+        "AGENTS.md",
+        "PROJECT_STATE.md",
+        "backend/app/central_brain.py",
+        "backend/app/dual_agent_council.py",
+        "backend/app/gemini_agent.py",
+        "backend/app/agent_tooling.py",
+        "backend/app/specialist_agents.py",
+        "backend/app/main.py",
+        "backend/tests/test_app.py",
+        "backend/tests/test_stage17_regression.py",
+        "backend/tests/test_stage18_integration.py",
+        "backend/tests/test_realtime.py",
+        "backend/tests/test_frontend_mobile_rtl.py",
+        "backend/tests/test_stage16_cleanup.py",
+    )
+    chunks: list[str] = []
+    remaining = 30000
+    for rel in paths:
+        if remaining <= 0:
+            break
+        full = os.path.join(root, rel)
+        try:
+            with open(full, "r", encoding="utf-8") as fh:
+                text = fh.read()
+        except (OSError, UnicodeDecodeError):
+            continue
+        # Never include environment files, credentials, or binary assets.
+        text = text[: min(len(text), 5000, remaining)]
+        chunks.append(f"--- {rel} ---\n{text}")
+        remaining -= len(text)
+    return "\n".join(chunks)
+
+
 def _company_objective(department: str, message: str) -> str:
+    repository_context = _shared_repository_context()
     return (
         "PRIMARY BUSINESS OBJECTIVE: advance Company AI's legitimate long-term interests "
         "by producing the most correct, useful, secure, maintainable and evidence-supported result. "
@@ -69,7 +107,11 @@ def _company_objective(department: str, message: str) -> str:
         "They must share relevant context, challenge weak assumptions, correct each other, "
         "and converge on one shared plan. Never trade away security, authorization, legal compliance, "
         "owner approval or data protection for speed. "
-        f"Department: {department}. Request: {message.strip()}"
+        f"Department: {department}. Request: {message.strip()}\n"
+        "SHARED REPOSITORY EVIDENCE: The exact same repository snapshot below must be "
+        "used by ChatGPT and Gemini. Inspect it before proposing fixes. Do not claim to "
+        "have inspected files that are not present in this snapshot.\n"
+        f"{repository_context}"
     )
 
 
