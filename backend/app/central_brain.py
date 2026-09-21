@@ -3,9 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-from .specialist_agents import execute_specialist
+from .specialist_agents import execute_specialist\nfrom .dual_agent_council import run_council
 
 router = APIRouter()
 
