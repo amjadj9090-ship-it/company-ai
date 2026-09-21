@@ -87,10 +87,20 @@ def seed(s):
     else:
         owner.name=owner.name or 'Owner'; owner.role='admin'; owner.active=True
         if owner_password and owner_password!='change-me' and not verify(owner_password,owner.password_hash): owner.password_hash=pwd_hash(owner_password)
-    agents=['central','sales','marketing','lead_generation','growth','trade','customer_support','web_design','app_development','uiux','frontend','qa','operations','analytics','finance','legal','security','partnerships','product','seo','entrepreneurship','website_growth','cybersecurity','monitoring_operations','agent_builder','gemini']
-    for n in agents:
-        exists=s.scalar(select(Entity).where(Entity.kind=='agent',Entity.data['name'].as_string()==n))
-        if not exists: add(s,'agent',{'name':n,'status':'ready','description':f'{n} specialist agent','permissions':['read','propose']})
+    departments=['central','sales','marketing','lead_generation','growth','trade','customer_support','web_design','app_development','uiux','frontend','qa','operations','analytics','finance','legal','security','partnerships','product','seo','entrepreneurship','website_growth','cybersecurity','monitoring_operations','agent_builder','voice_avatar']
+    for department in departments:
+        for provider in ('chatgpt','gemini'):
+            name=f'{department}:{provider}'
+            exists=s.scalar(select(Entity).where(Entity.kind=='agent',Entity.data['name'].as_string()==name))
+            if not exists:
+                add(s,'agent',{
+                    'name':name,'provider':provider,'department':department,'status':'ready',
+                    'description':f'{provider.title()} agent for {department}',
+                    'permissions':['read','propose','collaborate','verify'],
+                    'company_interest_priority':True,
+                    'owner_approval_required_for':['money_movement','binding_contract','legal_commitment','non_standard_financial_commitment'],
+                    'forbidden':['secret_exfiltration','self_permission_escalation','governance_bypass']
+                })
     voice_dept=s.scalar(select(Entity).where(Entity.kind=='departments',Entity.data['slug'].as_string()=='voice-avatar'))
     if not voice_dept: add(s,'departments',{'name':'Voice & Avatar AI','slug':'voice-avatar','status':'active','mission':'In-house speech, voice interaction, avatar, lip-sync, facial and body animation stack.','ownership':'company_ai','external_dependency_policy':'external providers may be optional adapters, never required core infrastructure.'})
     layan_voice=s.scalar(select(Entity).where(Entity.kind=='voice_profiles',Entity.data['slug'].as_string()=='layan-universal'))
