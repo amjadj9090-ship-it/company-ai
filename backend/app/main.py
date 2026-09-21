@@ -103,6 +103,16 @@ def seed(s):
                     'owner_approval_required_for':['money_movement','binding_contract','legal_commitment','non_standard_financial_commitment'],
                     'forbidden':['secret_exfiltration','self_permission_escalation','governance_bypass']
                 })
+            else:
+                exists.data = {
+                    **(exists.data or {}),
+                    'permissions':['read','propose','collaborate','verify','use_all_supported_provider_tools'],
+                    'tool_access':'full_supported_provider_surface',
+                    'tool_policy':'enable_all_supported_tools; gate_only_for_safety_authorization_provider_limits_or_missing_executor',
+                    'company_interest_priority':True,
+                    'owner_approval_required_for':['money_movement','binding_contract','legal_commitment','non_standard_financial_commitment'],
+                    'forbidden':['secret_exfiltration','self_permission_escalation','governance_bypass']
+                }
     voice_dept=s.scalar(select(Entity).where(Entity.kind=='departments',Entity.data['slug'].as_string()=='voice-avatar'))
     if not voice_dept: add(s,'departments',{'name':'Voice & Avatar AI','slug':'voice-avatar','status':'active','mission':'In-house speech, voice interaction, avatar, lip-sync, facial and body animation stack.','ownership':'company_ai','external_dependency_policy':'external providers may be optional adapters, never required core infrastructure.'})
     layan_voice=s.scalar(select(Entity).where(Entity.kind=='voice_profiles',Entity.data['slug'].as_string()=='layan-universal'))
