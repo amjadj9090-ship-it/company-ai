@@ -1,4 +1,4 @@
-# Execution trigger refreshed by coordinator — Gemini remains the primary executor.\nname: Gemini Agent - Execute Blank Page Fix
+# Coordinator command: Gemini must inspect, fix, validate, and report the current blank-page task; Gemini remains the primary executor.\nname: Gemini Agent - Execute Blank Page Fix
 
 on:
   push:
