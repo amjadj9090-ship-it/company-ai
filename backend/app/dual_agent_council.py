@@ -281,32 +281,43 @@ def run_council(department: str, message: str, *, protected: bool = False) -> di
     errors: dict[str, str] = {}
     rounds: list[CollaborativeRound] = []
 
-    # Default: one independent report per teammate. Both receive identical evidence,
-    # but neither sees the other's report during its independent analysis.
-    if os.getenv("COMPANY_AI_COLLAB_MODE", "independent_reports").strip().lower() != "full_cross_review":
+    # Default: Gemini-first. OpenAI is optional and must never block Company AI.
+    mode = os.getenv("COMPANY_AI_COLLAB_MODE", "gemini_primary").strip().lower()
+    if mode != "full_cross_review":
         chatgpt: AgentOpinion | None = None
         gemini: AgentOpinion | None = None
-        for name, fn in (("chatgpt", _chatgpt_call), ("gemini", _gemini_call)):
-            try:
-                opinion = fn(_round_prompt(objective, "initial"))
-                if name == "chatgpt":
-                    chatgpt = opinion
-                else:
-                    gemini = opinion
-            except Exception as exc:
-                errors[f"{name}_initial"] = f"{exc.__class__.__name__}: {exc}"
+        # Gemini is the primary free-tier worker.
+        try:
+            gemini = _gemini_call(_round_prompt(objective, "initial"))
+        except Exception as exc:
+            errors["gemini_initial"] = f"{exc.__class__.__name__}: {exc}"
 
-        if chatgpt and gemini:
-            rounds.append(CollaborativeRound(1, "independent_reports", chatgpt, gemini))
-            decision = decide(
-                department, chatgpt, gemini, protected=protected, rounds=rounds,
-            )
+        # OpenAI is opt-in only, so an empty/expired OpenAI balance never blocks the company.
+        if os.getenv("COMPANY_AI_ENABLE_OPENAI", "false").strip().lower() == "true" and os.getenv("OPENAI_API_KEY", "").strip():
+            try:
+                chatgpt = _chatgpt_call(_round_prompt(objective, "initial"))
+            except Exception as exc:
+                errors["chatgpt_initial"] = f"{exc.__class__.__name__}: {exc}"
+
+        if gemini:
+            rounds.append(CollaborativeRound(1, "gemini_primary", chatgpt, gemini))
+            if chatgpt:
+                decision = decide(department, chatgpt, gemini, protected=protected, rounds=rounds)
+                shared_plan = decision.selected_plan
+            else:
+                shared_plan = gemini.proposal.strip()
+                decision = CouncilDecision(
+                    department, shared_plan,
+                    "Gemini is the active primary provider; OpenAI is optional and disabled/unavailable.",
+                    protected, participants=("gemini",),
+                    status="gemini_primary_plan_ready" if not protected else "owner_approval_required",
+                )
             return {
                 "status": decision.status,
                 "department": department,
                 "objective": objective,
-                "participants": ["chatgpt", "gemini"],
-                "collaboration_mode": "independent_reports_then_shared_synthesis",
+                "participants": ["chatgpt", "gemini"] if chatgpt else ["gemini"],
+                "collaboration_mode": "gemini_primary_optional_openai",
                 "rounds_completed": 1,
                 "max_rounds": 1,
                 "rounds": [{
@@ -315,7 +326,7 @@ def run_council(department: str, message: str, *, protected: bool = False) -> di
                     "chatgpt": _opinion_dict(chatgpt),
                     "gemini": _opinion_dict(gemini),
                 }],
-                "shared_plan": decision.selected_plan,
+                "shared_plan": shared_plan,
                 "decision": {
                     "selected_plan": decision.selected_plan,
                     "rationale": (
