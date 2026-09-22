@@ -12,7 +12,7 @@ const academyLabels={
 };
 const academyText=(k)=>academyLabels[lang]?.[k]||academyLabels.en[k];
 
-async function openAcademy(){
+export async function openAcademy({lang,$,esc,closeDrawer,openChat}){
   const d=$("#drawer");
   d.innerHTML='<div class="drawer-panel"><div class="drawer-body academy-loading">Loading AI Academy…</div></div>';
   d.classList.add("open");
@@ -37,4 +37,3 @@ async function openAcademy(){
     d.querySelectorAll("[data-course]").forEach(b=>b.onclick=()=>openChat(b.closest(".academy-course").querySelector("h4").textContent));
   }catch(e){d.querySelector(".drawer-body").innerHTML=`<div class="detail"><h2>AI Academy</h2><p>${esc(e.message)}</p></div>`}
 }
-window.openAcademy=openAcademy;
