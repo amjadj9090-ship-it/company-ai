@@ -1,4 +1,4 @@
-name: Company AI Stage 0 Dual-Agent Verification
+name: Company AI Stage 0 Gemini-First Verification
 
 on:
   push:
@@ -13,9 +13,10 @@ jobs:
   dual-agent-stage0:
     runs-on: ubuntu-latest
     env:
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-      COMPANY_AI_COLLAB_ROUNDS: "2"\n      COMPANY_AI_COLLAB_MODE: "independent_reports"
+      COMPANY_AI_COLLAB_ROUNDS: "1"
+      COMPANY_AI_COLLAB_MODE: "gemini_primary"
+      COMPANY_AI_ENABLE_OPENAI: "false"
     steps:
       - name: Checkout exact commit
         uses: actions/checkout@v4
@@ -49,10 +50,3 @@ jobs:
           assert os.getenv("COMPANY_AI_ENABLE_OPENAI") == "false"
           print("Gemini-first configuration verified; live provider call intentionally skipped when quota is unavailable.")
           PY
-
-      - name: Upload dual-agent audit report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: stage0-dual-agent-report
-          path: stage0-dual-agent-report.json
