@@ -15,6 +15,8 @@ def test_dual_agents_receive_identical_repository_evidence(monkeypatch):
     monkeypatch.setattr(council, "_chatgpt_call", fake_chatgpt)
     monkeypatch.setattr(council, "_gemini_call", fake_gemini)
     monkeypatch.setattr(council, "MAX_COLLABORATION_ROUNDS", 1)
+    monkeypatch.setenv("COMPANY_AI_COLLAB_MODE", "full_cross_review")
+    monkeypatch.setenv("COMPANY_AI_ENABLE_OPENAI", "true")
 
     result = council.run_council("central_brain", "audit Stage 0 root causes")
 
