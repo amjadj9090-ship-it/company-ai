@@ -1,0 +1,95 @@
+name: Gemini Agent - Execute Blank Page Fix
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gemini-blank-page-fix
+  cancel-in-progress: false
+
+jobs:
+  gemini-fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GEMINI_CLI_TRUST_WORKSPACE: "true"
+      COMPANY_AI_LIVE_URL: "https://company-ai-0mya.onrender.com"
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify Gemini credential
+        run: |
+          test -n "$GEMINI_API_KEY" || { echo "GEMINI_API_KEY GitHub secret is missing"; exit 1; }
+
+      - name: Create immutable pre-Gemini backup branch
+        run: |
+          git config user.name "company-ai-gemini-agent"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          BACKUP="backup/pre-gemini-blank-page-${GITHUB_RUN_ID}"
+          git branch "$BACKUP"
+          git push origin "$BACKUP"
+          echo "BACKUP_BRANCH=$BACKUP" >> "$GITHUB_ENV"
+
+      - name: Install Gemini CLI
+        run: npm install -g @google/gemini-cli@latest
+
+      - name: Verify Gemini CLI
+        run: gemini --version
+
+      - name: Give Gemini equal repository execution authority
+        run: |
+          gemini --approval-mode=yolo --skip-trust -p '
+          You are the execution agent for Company AI. You have full read/write/execute authority over this checked-out repository for this task.
+
+          TASK:
+          Fix the current live Company AI blank/white homepage at:
+          https://company-ai-0mya.onrender.com
+
+          Known evidence:
+          - Render is serving / with HTTP 200.
+          - layan-realtime-hotfix.js, company-ai-live-bridge.js, frontend-v2/styles/base.css, and frontend-v2/modules/app.js are being served with HTTP 200/304.
+          - The browser still shows a blank white page.
+          Therefore investigate the frontend runtime/rendering root cause first, not Render availability.
+
+          REQUIRED WORKFLOW:
+          1. Inspect the repository from the current main commit and identify the root cause of the blank page.
+          2. Inspect frontend-v2/index.html, frontend-v2/modules/app.js, frontend-v2/styles/base.css, frontend/layan-realtime-hotfix.js, company-ai-live-bridge.js and their imports/dependencies.
+          3. Use browser/runtime/static tests where practical. Do not guess.
+          4. Fix the root cause cleanly. Do not create a patch-on-patch workaround and do not revert to any old Company AI version.
+          5. Preserve the approved Layan homepage image, chat/voice architecture, and current Gemini-first configuration unless a change is strictly required for the blank-page fix.
+          6. Run the relevant backend tests and frontend validation. If possible, start the app locally and verify the HTML and JavaScript load without runtime errors.
+          7. Review git diff carefully for accidental regressions or secrets.
+          8. Only if the fix passes validation, commit it directly to main with a clear message and push it to origin/main so Render can auto-deploy.
+          9. If tests fail, do not push a broken change. Leave a clear diagnostic report in the job output and exit non-zero.
+          10. Do not expose GEMINI_API_KEY or any secret in files, logs, commits, or output.
+
+          SUCCESS CRITERIA:
+          - Root cause identified from actual code/runtime evidence.
+          - Minimal clean fix applied.
+          - Tests/validation pass.
+          - Fix committed and pushed to main only after validation.
+          - Report the commit SHA and exact files changed.
+          ';
+      
+      - name: Verify final repository state
+        run: |
+          git status --short
+          git log -1 --oneline
+          git diff HEAD^ HEAD --stat
+
+      - name: Verify live URL responds
+        run: |
+          curl -fsS -o /tmp/company-ai.html -w "HTTP=%{http_code}\n" "$COMPANY_AI_LIVE_URL/"
+          test -s /tmp/company-ai.html
+          echo "Live homepage returned non-empty HTML."
