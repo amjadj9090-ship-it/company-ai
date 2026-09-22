@@ -1,4 +1,4 @@
-name: Gemini Agent - Execute Blank Page Fix
+# Execution trigger refreshed by coordinator — Gemini remains the primary executor.\nname: Gemini Agent - Execute Blank Page Fix
 
 on:
   push:
