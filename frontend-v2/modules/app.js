@@ -27,7 +27,7 @@ function bind(){
  document.querySelectorAll("[data-home]").forEach(b=>b.onclick=()=>scrollTo({top:0,behavior:"smooth"}));
  document.querySelectorAll("[data-services]").forEach(b=>b.onclick=()=>$("#services").scrollIntoView({behavior:"smooth"}));
  document.querySelectorAll("[data-section]").forEach(b=>b.onclick=()=>openSection(b.dataset.section));
- document.querySelectorAll("[data-academy]").forEach(b=>b.onclick=()=>openAcademy());
+ document.querySelectorAll("[data-academy]").forEach(b=>b.onclick=()=>openAcademy({lang,$,esc,closeDrawer,openChat}));
  document.querySelectorAll("[data-chat]").forEach(b=>b.onclick=()=>openChat());
  document.querySelectorAll("[data-voice]").forEach(b=>b.onclick=()=>{try{openVoice()}catch(e){toast(e.message)}});
  $("#language").onchange=e=>{lang=e.target.value;localStorage.setItem("company-ai-language",lang);render()};
