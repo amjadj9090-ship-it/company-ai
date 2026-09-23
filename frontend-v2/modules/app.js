@@ -58,7 +58,6 @@ function ensureVoiceStage(){
  document.body.appendChild(s);
  return s;
 }
-function openVoice(){ensureVoiceStage();if(typeof window.startLayanVoice!=="function")throw Error("Voice module is not ready");return window.startLayanVoice();}
 function openChat(prefill=""){const c=$("#chat");resetChat();c.innerHTML=`<div class="chat-panel"><div class="chat-head"><div class="layan-id"><span class="dot"></span><div><strong>Layan</strong><small>${esc(t(lang,"online"))}</small></div></div><button class="close" data-close>×</button></div><div class="chat-messages" id="messages"><div class="msg ai">${esc(t(lang,"notSure"))}</div></div><form class="chat-form"><input id="chat-input" placeholder="${esc(t(lang,"type"))}" value="${esc(prefill)}"><button>${esc(t(lang,"send"))}</button></form></div>`;c.classList.add("open");c.querySelector("[data-close]").onclick=closeChat;c.onclick=e=>{if(e.target===c)closeChat()};c.querySelector("form").onsubmit=async e=>{e.preventDefault();const x=$("#chat-input"),m=x.value.trim();if(!m)return;add(m,"user");x.value="";try{const r=await chat(m,lang);add(r.reply,"ai")}catch(err){add(err.message,"ai")}};c.querySelector("#chat-input").focus()}
 function add(v,k){const m=$("#messages"),x=document.createElement("div");x.className="msg "+k;x.textContent=v;m.appendChild(x);m.scrollTop=m.scrollHeight}
 function closeChat(){const c=$("#chat");c.classList.remove("open");c.setAttribute("aria-hidden","true")}
