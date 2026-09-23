@@ -12,7 +12,7 @@ const academyLabels={
 };
 const academyText=(k)=>academyLabels[lang]?.[k]||academyLabels.en[k];
 
-async function openAcademy(){
+export async function openAcademy({lang,$,esc,closeDrawer,openChat}){
   const d=$("#drawer");
   d.innerHTML='<div class="drawer-panel"><div class="drawer-body academy-loading">Loading AI Academy…</div></div>';
   d.classList.add("open");
