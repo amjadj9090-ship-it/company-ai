@@ -6,6 +6,7 @@ from threading import Lock
 from typing import Any
 import uuid
 from company_ai_ops import ops
+from backend.app.specialist_agents import execute_specialist
 
 @dataclass(frozen=True)
 class BrainDecision:
@@ -90,6 +91,21 @@ class CentralBrain:
                 "contract_signing_allowed_without_owner": False,
             },
         }
+        execution = execute_specialist(
+            decision.department,
+            message,
+            list(decision.next_actions),
+            owner_approved=False,
+        )
+        if execution.get("status") == "completed":
+            plan["status"] = "completed"
+            plan["execution"] = execution
+            task = ops.mark_handoff_ready(task["task_id"])
+            if task:
+                task["status"] = "completed"
+                task["execution"] = execution
+        else:
+            plan["execution"] = execution
         with self._lock:
             self._plans[plan_id] = plan
         return plan
