@@ -140,21 +140,94 @@ def sales_operations(agent_id: int):
             counts[kind]=len(s.scalars(select(main.Entity).where(main.Entity.kind==kind,main.Entity.data["agent_id"].as_integer()==agent_id)).all())
     return {"knowledge_items":counts["sales_knowledge"],"memory_items":counts["sales_memory"],"tool_actions":counts["sales_tool_actions"],"escalation_rules":counts["sales_escalation_rules"]}
 
+def _extract_lead_fields(message: str, history: list[dict[str, Any]], explicit_email: str | None = None) -> dict[str, str]:
+    """Collect lead fields across the whole conversation, not only the latest turn."""
+    texts=[]
+    for item in history:
+        if isinstance(item, dict):
+            txt=str(item.get("text") or item.get("content") or "").strip()
+            if txt: texts.append(txt)
+    texts.append(message)
+    joined="\n".join(texts)
+    email=(explicit_email or "").strip()
+    if not email:
+        m=re.search(r"\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}\\b", joined)
+        if m: email=m.group(0)
+    phone=""
+    m=re.search(r"(?<!\\d)(?:\\+?[0-9][0-9 ()-]{7,}[0-9])(?!\\d)", joined)
+    if m: phone=re.sub(r"\\s+"," ",m.group(0)).strip()
+    name=""
+    patterns=(
+        r"(?:my name is|i am|i'm|name is)\\s+([A-Za-z][A-Za-z .'-]{1,100})",
+        r"(?:اسمي|أنا|انا|اسم العميل هو|اسم العميل:)\\s*([\\u0600-\\u06ffA-Za-z][\\u0600-\\u06ffA-Za-z .'-]{1,100})",
+    )
+    for pattern in patterns:
+        matches=list(re.finditer(pattern, joined, flags=re.I))
+        if matches:
+            candidate=matches[-1].group(1).strip(" .,-")
+            candidate=re.split(r"(?i)\\s+(?:and|و)\\s+(?:my|رقم|phone|email|الايميل|البريد)", candidate)[0].strip()
+            if candidate: name=candidate
+    # If the client entered a bare name as a separate turn, keep it instead of
+    # replacing it with the generic "Website visitor".
+    if not name:
+        for item in reversed(texts):
+            line=item.strip()
+            if line and not re.search(r"@|https?://|\\b(?:phone|email|رقم|إيميل|ايميل|هاتف|بريد)\\b", line, re.I) and len(line.split()) <= 6:
+                if not re.search(r"^[?!.،,]+$", line):
+                    name=line
+                    break
+    return {"name":name, "email":email, "phone":phone}
+
 @router.post("/api/sales-agent/{agent_id}/conversation")
 def sales_conversation(agent_id:int,payload:Conversation):
     _get("agent_builds",agent_id)
     message=payload.message.strip()
     language=_detect_language(message, payload.language)
     reply=_gemini_reply(message, language, payload.channel, payload.history[-10:])
+    fields=_extract_lead_fields(message, payload.history[-10:], payload.email)
     lead=None
-    if payload.email:
+    # A lead is created/updated only when we have an actual customer name.
+    # Fields may arrive over multiple turns; never mark a partial turn as complete.
+    if fields["name"]:
         try:
             main=_main()
             with main.Session(main.engine) as s:
-                lead=main.Entity(kind="crm_lead",data={"name":"Website visitor","email":payload.email,"source":"website-sales-agent","service":None,"stage":"new","owner":"sales","message":message},created_at=_now(),updated_at=_now())
-                s.add(lead); s.commit(); s.refresh(lead); lead={"id":lead.id,**lead.data}
-        except Exception: lead=None
-    return {"status":"ok","reply":reply,"language":language,"engine":"gemini","lead":lead,"recommendations":[{"name":"Website Starter"},{"name":"Website Pro"},{"name":"Business App"}]}
+                existing=None
+                if fields["email"]:
+                    existing=s.scalar(select(main.Entity).where(
+                        main.Entity.kind=="crm_lead",
+                        main.Entity.data["email"].as_string()==fields["email"],
+                    ))
+                if not existing and fields["phone"]:
+                    existing=s.scalar(select(main.Entity).where(
+                        main.Entity.kind=="crm_lead",
+                        main.Entity.data["phone"].as_string()==fields["phone"],
+                    ))
+                data=dict(existing.data) if existing else {}
+                data.update({
+                    "name":fields["name"],
+                    "email":fields["email"] or data.get("email"),
+                    "phone":fields["phone"] or data.get("phone"),
+                    "source":"website-sales-agent",
+                    "stage":data.get("stage","new"),
+                    "owner":"sales",
+                    "message":message,
+                })
+                if existing:
+                    existing.data=data; existing.updated_at=_now(); s.commit(); s.refresh(existing)
+                    lead={"id":existing.id,**existing.data}
+                else:
+                    lead=main.Entity(kind="crm_lead",data=data,created_at=_now(),updated_at=_now())
+                    s.add(lead); s.commit(); s.refresh(lead); lead={"id":lead.id,**lead.data}
+        except Exception:
+            lead=None
+    return {
+        "status":"ok","reply":reply,"language":language,"engine":"gemini",
+        "lead":lead,
+        "lead_fields":fields,
+        "lead_complete":bool(fields["name"]),
+        "recommendations":[{"name":"Website Starter"},{"name":"Website Pro"},{"name":"Business App"}],
+    }
 
 def _detect_language(message: str, requested: str | None) -> str:
     requested=(requested or "").strip().lower()
