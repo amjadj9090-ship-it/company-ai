@@ -129,12 +129,27 @@ async def voice(body:dict):
         if error:
             return JSONResponse(status_code=502,content={"reply":"تعذر معالجة الصوت حالياً.","error":"ai_unavailable"})
         try:
-            obj=json.loads(text.strip().strip("`"))
+            cleaned=text.strip().strip("`").strip()
+            if cleaned.lower().startswith("json"):
+                cleaned=cleaned[4:].strip()
+            obj=json.loads(cleaned)
             transcript=str(obj.get("transcript","")).strip()
             answer=str(obj.get("reply","")).strip()
         except Exception:
             transcript=""
-            answer=text
+            answer=text.strip()
+            # Some Gemini responses wrap the JSON object in prose/code fences.
+            start=answer.find("{")
+            end=answer.rfind("}")
+            if start>=0 and end>start:
+                try:
+                    obj=json.loads(answer[start:end+1])
+                    transcript=str(obj.get("transcript","")).strip()
+                    answer=str(obj.get("reply","")).strip()
+                except Exception:
+                    pass
+        if not transcript and not answer:
+            return JSONResponse(status_code=502,content={"reply":"تعذر فهم التسجيل حالياً.","error":"voice_parse_error"})
         return {"transcript":transcript,"reply":answer,"model":MODEL}
     except Exception as exc:
         print("voice error",type(exc).__name__,str(exc)[:500])
