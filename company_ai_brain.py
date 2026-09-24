@@ -107,7 +107,10 @@ def analyze(message: str, context: dict[str, Any] | None = None) -> BrainDecisio
 
     if any(k in text for k in (
         "website growth", "website audit", "site audit",
-        "نمو الموقع", "فحص الموقع", "تقييم الموقع", "تحسين الموقع",
+        "نمو الموقع", "نمو مواقع", "نمو موقع",
+        "فحص الموقع", "فحص موقع", "تقييم الموقع",
+        "تحسين الموقع", "تحسين نمو الموقع", "تحسين نمو موقع",
+        "فحص وتحسين",
     )):
         return BrainDecision(
             "website_growth", "website_growth_request", "normal", "auto_standard", False,
