@@ -37,22 +37,84 @@ footer{padding:32px 0;border-top:1px solid #ffffff0d;color:#8194aa;font-size:13p
 <button class="chat" onclick="openChat()">AI</button>
 <div class="modal" id="modal" onclick="if(event.target===this)closeChat()"><div class="box"><div class="mh"><b>ليان — Company AI</b><button class="close" onclick="closeChat()">×</button></div><div id="msgs" class="msgs"><div class="msg">مرحباً، أنا ليان. احكيلي شو بدك تبني.</div></div><div id="state" class="state"></div><div class="compose"><button class="mic" id="mic" onclick="voice()">🎙</button><input id="input" placeholder="اكتب طلبك..." onkeydown="if(event.key==='Enter')send()"><button class="send" onclick="send()">إرسال</button></div></div></div>
 <script>
-let hist=[],rec=null,chunks=[],recording=false;
+let hist=[],rec=null,chunks=[],recording=false,voiceSession=false,currentAudio=null,voiceRetry=false;
 function openChat(){document.getElementById('modal').classList.add('open');setTimeout(()=>document.getElementById('input').focus(),50)}
-function closeChat(){document.getElementById('modal').classList.remove('open')}
+function closeChat(){voiceSession=false;if(recording&&rec)rec.stop();if(currentAudio){currentAudio.pause();currentAudio.currentTime=0;currentAudio=null}speechSynthesis?.cancel();document.getElementById('modal').classList.remove('open')}
 function add(r,t){let d=document.createElement('div');d.className='msg '+(r==='user'?'u':'');d.textContent=t;document.getElementById('msgs').appendChild(d);d.scrollIntoView({block:'nearest'});hist.push({role:r,content:t})}
 async function speakLayan(text){
+  if(currentAudio){currentAudio.pause();currentAudio.currentTime=0;currentAudio=null}
+  speechSynthesis?.cancel();
   try{
     let r=await fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
     if(r.ok){
       let x=await r.json();
-      if(x.audio_base64){let a=new Audio('data:'+x.mime_type+';base64,'+x.audio_base64);await a.play();return}
+      if(x.audio_base64){
+        let a=new Audio();
+        currentAudio=a;
+        a.preload='auto';
+        a.src='data:'+x.mime_type+';base64,'+x.audio_base64;
+        await new Promise((resolve,reject)=>{a.onended=resolve;a.onerror=reject;a.play().catch(reject)});
+        if(currentAudio===a)currentAudio=null;
+        return true
+      }
     }
-  }catch(e){}
-  if(speechSynthesis){speechSynthesis.cancel();let u=new SpeechSynthesisUtterance(text);u.lang=/[\u0600-\u06ff]/.test(text)?'ar-SA':'en-US';speechSynthesis.speak(u)}
+  }catch(e){if(currentAudio){currentAudio.pause();currentAudio=null}}
+  if(speechSynthesis){
+    let u=new SpeechSynthesisUtterance(text);u.lang=/[\u0600-\u06ff]/.test(text)?'ar-SA':'en-US';
+    await new Promise(resolve=>{u.onend=resolve;u.onerror=resolve;speechSynthesis.speak(u)})
+  }
+  return false
 }
 async function send(){let i=document.getElementById('input'),m=i.value.trim();if(!m)return;i.value='';add('user',m);let d=document.createElement('div');d.className='msg';d.textContent='...';document.getElementById('msgs').appendChild(d);try{let r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:m,history:hist.slice(0,-1)})});let x=await r.json();d.textContent=x.reply||'تعذر الحصول على رد الآن.';hist.push({role:'assistant',content:d.textContent})}catch(e){d.textContent='تعذر الاتصال بالخدمة حالياً.'}}
-async function voice(){if(recording){rec.stop();return}if(!navigator.mediaDevices?.getUserMedia){document.getElementById('state').textContent='التسجيل الصوتي غير مدعوم هنا.';return}try{let s=await navigator.mediaDevices.getUserMedia({audio:true});chunks=[];let types=['audio/webm;codecs=opus','audio/webm','audio/mp4'];let mime=types.find(t=>MediaRecorder.isTypeSupported(t))||'';rec=new MediaRecorder(s,mime?{mimeType:mime}:undefined);let activeMime=mime||rec.mimeType||'audio/webm';let ctx=new (window.AudioContext||window.webkitAudioContext)(),an=ctx.createAnalyser(),src=ctx.createMediaStreamSource(s);an.fftSize=2048;src.connect(an);let data=new Uint8Array(an.fftSize),speechSeen=false,speechStartedAt=0,silenceSince=0,watch=null;rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};rec.onerror=()=>{if(watch)clearInterval(watch);ctx.close();s.getTracks().forEach(t=>t.stop());recording=false;document.getElementById('mic').textContent='🎙';document.getElementById('state').textContent='تعذر تسجيل الصوت.'};rec.onstop=async()=>{if(watch)clearInterval(watch);await ctx.close().catch(()=>{});s.getTracks().forEach(t=>t.stop());recording=false;document.getElementById('mic').textContent='🎙';if(!chunks.length){document.getElementById('state').textContent='لم يتم التقاط صوت. جرّب مرة ثانية.';return}document.getElementById('state').textContent='ليان عم تحلل التسجيل...';let b=new Blob(chunks,{type:activeMime}),f=new FileReader();f.onloadend=async()=>{try{let r=await fetch('/api/voice',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({audio_base64:f.result.split(',')[1],mime_type:b.type,history:hist.slice(-12)})});let x=await r.json();if(!r.ok){document.getElementById('state').textContent=x.reply||'تعذر معالجة الصوت حالياً.';return}if(x.transcript)add('user',x.transcript);if(x.reply){add('assistant',x.reply);await speakLayan(x.reply)}document.getElementById('state').textContent=''}catch(e){document.getElementById('state').textContent='تعذر الاتصال بخدمة الصوت حالياً.'}};f.readAsDataURL(b)};rec.start();recording=true;document.getElementById('mic').textContent='⏹';document.getElementById('state').textContent='احكي الآن...';watch=setInterval(()=>{an.getByteTimeDomainData(data);let sum=0;for(let i=0;i<data.length;i++){let v=(data[i]-128)/128;sum+=v*v}let rms=Math.sqrt(sum/data.length);if(rms>0.02){speechSeen=true;if(!speechStartedAt)speechStartedAt=Date.now();silenceSince=0}else if(speechSeen&&Date.now()-speechStartedAt>700){if(!silenceSince)silenceSince=Date.now();if(Date.now()-silenceSince>1800){clearInterval(watch);rec.stop()}}},100)}catch(e){s?.getTracks?.().forEach(t=>t.stop());document.getElementById('state').textContent='لم يتم السماح بالميكروفون.'}}
+async function voice(){
+  if(recording){voiceSession=false;rec.stop();return}
+  voiceSession=true;voiceRetry=false;await startVoiceTurn()
+}
+async function startVoiceTurn(){
+  if(!voiceSession||recording)return;
+  if(!navigator.mediaDevices?.getUserMedia){document.getElementById('state').textContent='التسجيل الصوتي غير مدعوم هنا.';voiceSession=false;return}
+  try{
+    let s=await navigator.mediaDevices.getUserMedia({audio:true});chunks=[];
+    let types=['audio/webm;codecs=opus','audio/webm','audio/mp4'];
+    let mime=types.find(t=>MediaRecorder.isTypeSupported(t))||'';
+    rec=new MediaRecorder(s,mime?{mimeType:mime}:undefined);
+    let activeMime=mime||rec.mimeType||'audio/webm';
+    let ctx=new (window.AudioContext||window.webkitAudioContext)();await ctx.resume().catch(()=>{});
+    let an=ctx.createAnalyser(),src=ctx.createMediaStreamSource(s);an.fftSize=2048;src.connect(an);
+    let data=new Uint8Array(an.fftSize),speechSeen=false,speechStartedAt=0,silenceSince=0,watch=null;
+    rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
+    rec.onerror=()=>{if(watch)clearInterval(watch);ctx.close().catch(()=>{});s.getTracks().forEach(t=>t.stop());recording=false;document.getElementById('mic').textContent='🎙';document.getElementById('state').textContent='تعذر تسجيل الصوت.';if(voiceSession)setTimeout(startVoiceTurn,500)};
+    rec.onstop=async()=>{
+      if(watch)clearInterval(watch);await ctx.close().catch(()=>{});s.getTracks().forEach(t=>t.stop());recording=false;document.getElementById('mic').textContent=voiceSession?'⏹':'🎙';
+      if(!chunks.length){
+        if(voiceSession&&!voiceRetry){voiceRetry=true;document.getElementById('state').textContent='ما التقطت الصوت، عم جرّب مرة ثانية...';setTimeout(startVoiceTurn,500);return}
+        document.getElementById('state').textContent='ما التقطت الصوت. جرّب مرة ثانية.';return
+      }
+      voiceRetry=false;document.getElementById('state').textContent='ليان عم تحلل...';
+      let b=new Blob(chunks,{type:activeMime}),f=new FileReader();
+      f.onloadend=async()=>{
+        try{
+          let r=await fetch('/api/voice',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({audio_base64:f.result.split(',')[1],mime_type:b.type,history:hist.slice(-12)})});
+          let x=await r.json();
+          if(!r.ok){document.getElementById('state').textContent=x.reply||'تعذر معالجة الصوت حالياً.';return}
+          if(x.transcript)add('user',x.transcript);
+          if(x.reply){add('assistant',x.reply);document.getElementById('state').textContent='ليان عم تحكي...';await speakLayan(x.reply)}
+          if(voiceSession){document.getElementById('state').textContent='احكي الآن...';setTimeout(startVoiceTurn,250)}else document.getElementById('state').textContent=''
+        }catch(e){document.getElementById('state').textContent='تعذر الاتصال بخدمة الصوت حالياً.'}
+      };
+      f.readAsDataURL(b)
+    };
+    rec.start();recording=true;document.getElementById('mic').textContent='⏹';document.getElementById('state').textContent='احكي الآن...';
+    watch=setInterval(()=>{
+      an.getByteTimeDomainData(data);let sum=0;for(let i=0;i<data.length;i++){let v=(data[i]-128)/128;sum+=v*v}
+      let rms=Math.sqrt(sum/data.length);
+      if(rms>0.02){speechSeen=true;if(!speechStartedAt)speechStartedAt=Date.now();silenceSince=0}
+      else if(speechSeen&&Date.now()-speechStartedAt>700){if(!silenceSince)silenceSince=Date.now();if(Date.now()-silenceSince>1800){clearInterval(watch);rec.stop()}}
+    },100)
+  }catch(e){
+    s?.getTracks?.().forEach(t=>t.stop());document.getElementById('state').textContent='لم يتم السماح بالميكروفون.';voiceSession=false
+  }
+}
 function service(v){document.getElementById('svc').value=v}
 async function lead(e){e.preventDefault();let s=document.getElementById('status');s.textContent='جارٍ إرسال الطلب...';try{let r=await fetch('/api/leads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name.value,contact:contact.value,service:svc.value,message:brief.value})});let x=await r.json();s.textContent=x.accepted?'تم استلام طلبك.':'تعذر إرسال الطلب.'}catch(e){s.textContent='تعذر الاتصال حالياً.'}}
 </script>
