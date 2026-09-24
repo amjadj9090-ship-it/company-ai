@@ -209,6 +209,40 @@ async def chat(body:Chat):
     decision=BrainDecisionProxy(plan["decision"])
     contents.append({"role":"user","parts":[{"text":body.message}]})
 
+    # CRM intake is a real workflow: first collect the minimum customer data,
+    # then create the lead instead of marking the chat request as completed.
+    if decision.department == "sales_crm":
+        history_text="\\n".join(str(x.get("content","")) for x in body.history[-6:] if x.get("content"))
+        asks_for_crm = any(k in history_text.lower() for k in ("اسم العميل","رقم الهاتف","الإيميل","البريد","whatsapp"))
+        if not asks_for_crm:
+            return {
+                "reply": "أكيد. ابعتلي اسم العميل، رقم الهاتف، والإيميل، وإذا بتعرف شو الخدمة اللي مهتم فيها اكتبلي ياها كمان.",
+                "session_id": str(uuid.uuid4()), "model": "company-ai-crm-intake",
+                "plan_id": plan["plan_id"], "task_id": plan["task_id"],
+                "department": "sales_crm", "execution": plan.get("execution"), "status": plan.get("status"),
+            }
+        # Accept a simple comma/line-separated reply: name, phone, email, optional service.
+        parts=[p.strip() for p in body.message.replace("\\n", ",").split(",") if p.strip()]
+        email=next((p for p in parts if "@" in p and "." in p.split("@")[-1]), "")
+        phone=next((p for p in parts if sum(c.isdigit() for c in p)>=6), "")
+        name=next((p for p in parts if p not in {email,phone} and not any(c.isdigit() for c in p)), "")
+        if not (name and phone and email):
+            return {
+                "reply": "تمام، بس ناقصني واحد من هالثلاثة: اسم العميل، رقم الهاتف، أو الإيميل.",
+                "session_id": str(uuid.uuid4()), "model": "company-ai-crm-intake",
+                "plan_id": plan["plan_id"], "task_id": plan["task_id"],
+                "department": "sales_crm", "execution": plan.get("execution"), "status": plan.get("status"),
+            }
+        lead=ops.create_lead({"name":name,"contact":f"{phone} | {email}","service":"","message":body.message},department="sales_crm")
+        lead_task=ops.create_task("Qualify new lead","sales_crm",lead_id=lead["lead_id"],approval_required=False)
+        return {
+            "reply": f"تمام، انضاف العميل {name} على الـCRM، وسجلنا بيانات التواصل للمتابعة.",
+            "session_id": str(uuid.uuid4()), "model": "company-ai-crm-intake",
+            "plan_id": plan["plan_id"], "task_id": lead_task["task_id"],
+            "department": "sales_crm", "execution": {"status":"completed","executed":True,"result":"lead_completed","lead":lead},
+            "status": "completed",
+        }
+
     # Fast path for common standard requests: routing/plan creation is local and
     # should not wait on a remote model before giving the customer an immediate reply.
     fast_replies = {
