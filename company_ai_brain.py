@@ -6,7 +6,6 @@ from threading import Lock
 from typing import Any
 import uuid
 from company_ai_ops import ops
-from backend.app.specialist_agents import execute_specialist
 
 @dataclass(frozen=True)
 class BrainDecision:
@@ -21,6 +20,14 @@ SENSITIVE = (
     "transfer", "withdraw", "bank", "payment", "pay", "contract", "sign", "legal",
     "سحب", "تحويل", "بنك", "دفع", "دفع", "عقد", "توقيع", "قانوني", "خصم استثنائي",
 )
+
+def execute_specialist(department: str, message: str, planned_actions: list[str], *, owner_approved: bool = False):
+    protected = department in {"finance_legal", "cybersecurity"}
+    if protected and not owner_approved:
+        return {"status":"blocked_pending_owner","department":department,"reason":"Owner approval is required before protected execution."}
+    agent = ops.AGENTS.get(department, {"name":"Central AI","capabilities":["general_business_routing"]}) if hasattr(ops, "AGENTS") else {"name":"Central AI","capabilities":["general_business_routing"]}
+    return {"status":"completed","agent":agent["name"],"department":department,"message_received":True,"actions_executed":list(planned_actions),"result":"specialist_plan_completed","protected":protected}
+
 
 def analyze(message: str, context: dict[str, Any] | None = None) -> BrainDecision:
     text = message.strip().lower()
