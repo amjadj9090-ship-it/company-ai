@@ -1,5 +1,5 @@
 from pathlib import Path
-import os, uuid, base64, json
+import os, uuid, base64, json, asyncio
 import httpx
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
@@ -36,11 +36,28 @@ async def call_gemini(contents):
         return None,"missing_key"
     payload={"systemInstruction":{"parts":[{"text":SYSTEM}]},"contents":contents,
              "generationConfig":{"maxOutputTokens":700,"temperature":0.55}}
+    # Gemini documents 408/429/5xx as transient conditions. Retry centrally
+    # so chat and voice share one reliability policy instead of endpoint-specific patches.
+    delays=(1.0,2.0,4.0)
     async with httpx.AsyncClient(timeout=45) as client:
-        r=await client.post(API,headers={"x-goog-api-key":key,"Content-Type":"application/json"},json=payload)
-    if r.status_code>=400:
-        print("Gemini error",r.status_code,r.text[:1000])
-        return None,"provider_error"
+        for attempt, delay in enumerate(delays, start=1):
+            try:
+                r=await client.post(API,headers={"x-goog-api-key":key,"Content-Type":"application/json"},json=payload)
+            except httpx.RequestError as exc:
+                if attempt == len(delays):
+                    print("Gemini network error",type(exc).__name__)
+                    return None,"provider_error"
+                await asyncio.sleep(delay)
+                continue
+            if r.status_code < 400:
+                break
+            if r.status_code in (408,429) or 500 <= r.status_code <= 599:
+                if attempt < len(delays):
+                    print("Gemini transient error",r.status_code,"retry",attempt)
+                    await asyncio.sleep(delay)
+                    continue
+            print("Gemini error",r.status_code,r.text[:1000])
+            return None,"provider_error"
     parts=r.json().get("candidates",[{}])[0].get("content",{}).get("parts",[])
     text="".join(p.get("text","") for p in parts if p.get("text")).strip()
     return (text or None),(None if text else "empty")
