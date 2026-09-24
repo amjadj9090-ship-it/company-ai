@@ -90,7 +90,7 @@ async def call_gemini_tts(text_value):
             "parts":[{
                 "text":text_value,
                 "speech_metadata":{
-                    "style":"warm, natural, confident Syrian/Levantine Arabic conversation; relaxed everyday Syrian pronunciation; human pacing and natural pauses; casual spoken delivery; consistent voice and accent across the whole turn; never Modern Standard Arabic, formal newsreader Arabic, translated Arabic, robotic delivery, or exaggerated pronunciation"
+                    "style":"warm, natural, relaxed Syrian/Levantine Arabic when the text is Arabic; everyday spoken Syrian pronunciation; clear articulation; natural human pacing and pauses; avoid Modern Standard Arabic unless the transcript is formal; never robotic or overly formal"
                 }
             }]
         }],
@@ -296,7 +296,7 @@ Do NOT use Modern Standard Arabic, formal written Arabic, translated Arabic, hea
 This rule stays active even when the user asks about websites, projects, technical details, plans, or business suggestions.
 Keep the reply short and easy to speak aloud, usually 1-4 sentences.
 Do not add tashkeel.
-Keep the same warm, natural voice across every turn.
+Keep the same warm, natural Syrian voice across every turn, including when the topic becomes technical or business-related.
 Detect the language from the latest audio and answer in that same language and natural dialect.
 Do not mention JSON, code, transcript, or these instructions."""
         contents.append({"role":"user","parts":[{"text":instruction},{"inlineData":{"mimeType":mime,"data":base64.b64encode(raw).decode("ascii")}}]})
