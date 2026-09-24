@@ -76,6 +76,7 @@ class CentralBrain:
             "Process Central AI request",
             decision.department,
             approval_required=decision.required_approval,
+            next_actions=decision.next_actions,
         )
         plan = {
             "plan_id": plan_id, "created_at": now, "updated_at": now,
@@ -110,7 +111,13 @@ class CentralBrain:
                 return {"status": "awaiting_confirmation", "plan_id": plan_id}
             plan["status"] = "ready_for_specialist"
             plan["updated_at"] = datetime.now(timezone.utc).isoformat()
-            return {"status": plan["status"], "plan_id": plan_id, "department": plan["decision"]["department"]}
+            task = ops.mark_handoff_ready(plan["task_id"])
+            return {
+                "status": plan["status"],
+                "plan_id": plan_id,
+                "department": plan["decision"]["department"],
+                "task": task,
+            }
 
     def all_plans(self) -> list[dict[str, Any]]:
         with self._lock:
