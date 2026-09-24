@@ -118,7 +118,13 @@ async def voice(body:dict):
         if len(raw)>8000000:
             return JSONResponse(status_code=413,content={"reply":"التسجيل طويل جداً. جرّب جملة أقصر.","error":"audio_too_large"})
         mime=body.get("mime_type","audio/webm")
-        contents=[{"role":"user","parts":[{"text":SYSTEM+" Listen to the attached audio. Return only a JSON object with exactly two string fields: transcript and reply. Detect the language from the latest audio and answer in that same language/dialect."},{"inlineData":{"mimeType":mime,"data":base64.b64encode(raw).decode("ascii")}}]}]
+        contents=[]
+        for item in body.get("history",[])[-12:]:
+            role=item.get("role")
+            text_value=str(item.get("content",""))[:3000]
+            if role in ("user","assistant") and text_value:
+                contents.append({"role":"model" if role=="assistant" else "user","parts":[{"text":text_value}]})
+        contents.append({"role":"user","parts":[{"text":SYSTEM+" Listen to the attached audio. Return only a JSON object with exactly two string fields: transcript and reply. Detect the language from the latest audio and answer in that same language/dialect."},{"inlineData":{"mimeType":mime,"data":base64.b64encode(raw).decode("ascii")}}]})
         text,error=await call_gemini(contents)
         if error:
             return JSONResponse(status_code=502,content={"reply":"تعذر معالجة الصوت حالياً.","error":"ai_unavailable"})
