@@ -36,6 +36,8 @@ def execute_specialist(
     if protected and not owner_approved:
         return {
             "status": "blocked_pending_owner",
+            "execution_mode": "blocked_pending_approval",
+            "executed": False,
             "department": department,
             "reason": "Owner approval is required before protected execution.",
         }
@@ -81,6 +83,8 @@ def execute_specialist(
 
     return {
         "status": "completed",
+        "execution_mode": "plan_prepared",
+        "executed": False,
         "agent": agent["name"],
         "department": department,
         "message_received": True,
@@ -112,7 +116,9 @@ def analyze(message: str, context: dict[str, Any] | None = None) -> BrainDecisio
 
     if any(k in text for k in (
         "cybersecurity", "cyber security", "security audit",
-        "أمن سيبراني", "حماية رقمية", "اختبار أمني", "ثغرات",
+        "أمن سيبراني", "حماية رقمية", "اختبار أمني", "اختبار أمان",
+        "أمان النظام", "أمان سيستم", "أمن النظام", "فحص أمان النظام",
+        "فحص أمان", "اختبار اختراق", "اختبار ثغرات", "ثغرات",
     )):
         return BrainDecision(
             "cybersecurity",
