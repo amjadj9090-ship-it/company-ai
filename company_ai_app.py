@@ -1,5 +1,5 @@
 from pathlib import Path
-import os, uuid
+import os, uuid, base64, json
 import httpx
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
@@ -74,3 +74,29 @@ async def chat(body:Chat):
 async def leads(body:Lead):
     return {"accepted":True,"lead_id":str(uuid.uuid4()),"status":"new"}
 
+
+@app.post("/api/voice")
+async def voice(body:dict):
+    key=os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    if not key:
+        return JSONResponse(status_code=503,content={"reply":"ليان جاهزة من ناحية الواجهة، لكن محرك الذكاء الاصطناعي غير موصول ببيئة التشغيل بعد.","error":"ai_unconfigured"})
+    try:
+        raw=base64.b64decode(body.get("audio_base64",""),validate=True)
+        if len(raw)>8000000:
+            return JSONResponse(status_code=413,content={"reply":"التسجيل طويل جداً. جرّب جملة أقصر.","error":"audio_too_large"})
+        mime=body.get("mime_type","audio/webm")
+        contents=[{"role":"user","parts":[{"text":SYSTEM+" Listen to the attached audio. Return only a JSON object with exactly two string fields: transcript and reply. Detect the language from the latest audio and answer in that same language/dialect."},{"inlineData":{"mimeType":mime,"data":base64.b64encode(raw).decode("ascii")}}]}]
+        text,error=await call_gemini(contents)
+        if error:
+            return JSONResponse(status_code=502,content={"reply":"تعذر معالجة الصوت حالياً.","error":"ai_unavailable"})
+        try:
+            obj=json.loads(text.strip().strip("`"))
+            transcript=str(obj.get("transcript","")).strip()
+            answer=str(obj.get("reply","")).strip()
+        except Exception:
+            transcript=""
+            answer=text
+        return {"transcript":transcript,"reply":answer,"model":MODEL}
+    except Exception as exc:
+        print("voice error",type(exc).__name__,str(exc)[:500])
+        return JSONResponse(status_code=502,content={"reply":"تعذر معالجة الصوت حالياً.","error":"voice_error"})
