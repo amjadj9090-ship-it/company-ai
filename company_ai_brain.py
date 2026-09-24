@@ -49,6 +49,18 @@ def execute_specialist(
     result = "specialist_plan_completed"
     artifact = None
 
+    if department == "website_growth":
+        result = "website_growth_plan_completed"
+        artifact = {
+            "type": "website_growth_plan",
+            "title": "Website Growth Audit & Optimization Plan",
+            "next_actions": [
+                "inspect_site",
+                "identify_growth_gaps",
+                "prepare_optimization_plan",
+            ],
+        }
+
     if department == "marketing":
         artifact = {
             "type": "marketing_campaign_plan",
