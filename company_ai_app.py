@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 ROOT=Path(__file__).resolve().parent
 WEB=ROOT/"company_ai_site"
-MODEL=os.getenv("GEMINI_MODEL","gemini-3.5-flash-lite")
+MODEL=os.getenv("GEMINI_MODEL","gemini-3.5-flash")
 API=f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent"
 app=FastAPI(title="Company AI",docs_url=None,redoc_url=None)
 
