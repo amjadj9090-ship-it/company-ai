@@ -33,7 +33,10 @@ class CompanyOps:
         try:
             import psycopg
             from psycopg.rows import dict_row
-            conn=psycopg.connect(self._db_url, connect_timeout=10, row_factory=dict_row)
+            db_url=self._db_url
+            if "sslmode=" not in db_url:
+                db_url += ("&" if "?" in db_url else "?") + "sslmode=require"
+            conn=psycopg.connect(db_url, connect_timeout=10, row_factory=dict_row)
             self._ensure_schema(conn)
             return conn
         except Exception:
