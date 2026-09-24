@@ -25,8 +25,28 @@ def execute_specialist(department: str, message: str, planned_actions: list[str]
     protected = department in {"finance_legal", "cybersecurity"}
     if protected and not owner_approved:
         return {"status":"blocked_pending_owner","department":department,"reason":"Owner approval is required before protected execution."}
+def execute_specialist(department: str, message: str, planned_actions: list[str], *, owner_approved: bool = False):
+    protected = department in {"finance_legal", "cybersecurity"}
+    if protected and not owner_approved:
+        return {"status":"blocked_pending_owner","department":department,"reason":"Owner approval is required before protected execution."}
     agent = AGENTS.get(department, {"name":"Central AI","capabilities":["general_business_routing"]})
-    return {"status":"completed","agent":agent["name"],"department":department,"message_received":True,"actions_executed":list(planned_actions),"result":"specialist_plan_completed","protected":protected}
+    result = "specialist_plan_completed"
+    artifact = None
+    if department == "marketing":
+        artifact = {
+            "type":"marketing_campaign_plan",
+            "objective":"زيادة الوعي وجذب عملاء محتملين جدد للشركة",
+            "target_audience":"أصحاب الشركات والأعمال الباحثون عن مواقع وأنظمة وحلول AI وأتمتة",
+            "value_proposition":"حلول رقمية وAI مخصصة للشركات من التخطيط إلى التنفيذ",
+            "channels":["محتوى اجتماعي","فيديوهات قصيرة","صفحة هبوط","متابعة العملاء المحتملين عبر CRM"],
+            "content_ideas":["مشكلة شائعة عند الشركات وكيف يحلها AI","عرض حالة استخدام حقيقية من Company AI","دعوة لتجربة استشارة أولية"],
+            "kpis":["عدد العملاء المحتملين","معدل التحويل","تكلفة العميل المحتمل عند وجود إعلانات مدفوعة"],
+            "next_actions":["تحديد العرض النهائي","إعداد المحتوى","إنشاء صفحة الحملة","ربط النتائج بـCRM"],
+            "paid_spend":"لا يوجد إنفاق مدفوع تم تنفيذه؛ أي إنفاق يحتاج موافقة المالك."
+        }
+        result = "marketing_campaign_plan_completed"
+    return {"status":"completed","agent":agent["name"],"department":department,"message_received":True,"actions_executed":list(planned_actions),"result":result,"artifact":artifact,"protected":protected}
+
 
 
 def analyze(message: str, context: dict[str, Any] | None = None) -> BrainDecision:
