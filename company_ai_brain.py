@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from threading import Lock
 from typing import Any
 import uuid
+from company_ai_ops import ops
 
 @dataclass(frozen=True)
 class BrainDecision:
@@ -71,11 +72,17 @@ class CentralBrain:
         decision = analyze(message, context)
         plan_id = "plan_" + uuid.uuid4().hex[:12]
         now = datetime.now(timezone.utc).isoformat()
+        task = ops.create_task(
+            "Process Central AI request",
+            decision.department,
+            approval_required=decision.required_approval,
+        )
         plan = {
             "plan_id": plan_id, "created_at": now, "updated_at": now,
             "message": message, "language": language, "channel": channel,
             "context": context or {}, "status": "awaiting_owner_approval" if decision.required_approval else "planned",
             "decision": asdict(decision),
+            "task_id": task["task_id"],
             "guardrails": {
                 "owner_approval_required_for_sensitive_commitments": True,
                 "money_movement_allowed_without_owner": False,
