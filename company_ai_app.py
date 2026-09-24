@@ -6,6 +6,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 from company_ai_brain import brain, analyze
 from company_ai_ops import ops, AGENTS
+from company_ai_projects import projects
 
 ROOT=Path(__file__).resolve().parent
 WEB=ROOT/"company_ai_site"
@@ -189,6 +190,30 @@ async def agents():
 @app.get("/api/tasks")
 async def tasks(status:str|None=None):
     return {"tasks":ops.list_tasks(status)}
+
+@app.post("/api/projects")
+async def create_project(body:dict):
+    name=str(body.get("name","")).strip()
+    request=str(body.get("request",body.get("message",""))).strip()
+    if not name or not request:
+        return JSONResponse(status_code=400,content={"error":"name_and_request_required"})
+    project=projects.create(name,request,context=body.get("context") or {})
+    return {"status":"ok","project":project}
+
+@app.get("/api/projects")
+async def list_projects(status:str|None=None):
+    return {"projects":projects.list(status)}
+
+@app.get("/api/projects/{project_id}")
+async def get_project(project_id:str):
+    project=projects.get(project_id)
+    if not project:
+        return JSONResponse(status_code=404,content={"error":"project_not_found"})
+    return {"project":project,"tasks":[x for x in ops.list_tasks() if x["task_id"] in project["task_ids"]]}
+
+@app.post("/api/projects/{project_id}/advance")
+async def advance_project(project_id:str,body:dict):
+    return projects.advance(project_id,confirm=bool(body.get("confirm",False)),owner_approved=bool(body.get("owner_approved",False)))
 
 @app.post("/api/agents/route")
 async def route_agent(body:dict):
