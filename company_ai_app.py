@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 ROOT=Path(__file__).resolve().parent
 WEB=ROOT/"company_ai_site"
-MODEL=os.getenv("GEMINI_MODEL","gemini-3.5-flash")
+MODEL=os.getenv("GEMINI_MODEL","gemini-3.5-flash-lite")
 API=f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent"
 TTS_MODEL=os.getenv("GEMINI_TTS_MODEL","gemini-3.8-flash-lite-tts")
 TTS_API="https://generativelanguage.googleapis.com/v1beta/interactions"
@@ -101,11 +101,7 @@ async def gemini_connection_check():
     if not (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")):
         print("Company AI Gemini live check: skipped (no key)")
         return
-    try:
-        _, error = await call_gemini([{"role":"user","parts":[{"text":"Reply with exactly OK."}]}])
-        print("Company AI Gemini live check:", "success" if error is None else f"failed ({error})")
-    except Exception as exc:
-        print("Company AI Gemini live check: failed", type(exc).__name__)
+    print("Company AI Gemini live check: deferred (no startup quota request)")
 
 @app.get("/")
 async def root():
