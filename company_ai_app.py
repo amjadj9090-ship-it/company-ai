@@ -216,7 +216,7 @@ async def chat(body:Chat):
         return JSONResponse(status_code=503,content={"reply":"ليان جاهزة، لكن محرك الذكاء الاصطناعي غير موصول ببيئة التشغيل بعد.","error":"ai_unconfigured"})
     if error:
         return JSONResponse(status_code=502,content={"reply":"تعذر الوصول إلى محرك ليان حالياً. لم يتم تنفيذ أي إجراء خارجي.","error":"ai_unavailable"})
-    return {"reply":text,"session_id":str(uuid.uuid4()),"model":MODEL,"plan_id":plan["plan_id"],"task_id":plan["task_id"],"department":plan["decision"]["department"]}
+    return {"reply":text,"session_id":str(uuid.uuid4()),"model":MODEL,"plan_id":plan["plan_id"],"task_id":plan["task_id"],"department":plan["decision"]["department"],"execution":plan.get("execution"),"status":plan.get("status")}
 
 @app.post("/api/leads")
 async def leads(body:Lead):
