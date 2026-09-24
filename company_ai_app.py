@@ -70,12 +70,27 @@ async def call_gemini_tts(text_value):
     key=os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if not key:
         return None,"missing_key"
-    payload={"model":TTS_MODEL,"input":[{"type":"user_input","content":[{"type":"text","text":text_value,"annotations":[{"type":"speech_metadata","style":"warm, natural, relaxed Syrian/Levantine Arabic when the text is Arabic; everyday spoken Syrian pronunciation; clear articulation; natural human pacing and pauses; avoid Modern Standard Arabic unless the transcript is formal; never robotic or overly formal"}]}]}],"response_format":{"type":"audio","mime_type":"audio/wav"},"generation_config":{"speech_config":[{"voice":"Kore"}]}}
+    payload={
+        "contents":[{
+            "role":"user",
+            "parts":[{
+                "text":text_value,
+                "speech_metadata":{
+                    "style":"warm, natural, relaxed Syrian/Levantine Arabic when the text is Arabic; everyday spoken Syrian pronunciation; clear articulation; natural human pacing and pauses; avoid Modern Standard Arabic unless the transcript is formal; never robotic or overly formal"
+                }
+            }]
+        }],
+        "generationConfig":{
+            "responseModalities":["AUDIO"],
+            "speechConfig":{"voiceConfig":{"voice":"Kore"}}
+        }
+    }
+    api=f"https://generativelanguage.googleapis.com/v1beta/models/{TTS_MODEL}:generateContent"
     delays=(1.0,2.0,4.0)
-    async with httpx.AsyncClient(timeout=25) as client:
+    async with httpx.AsyncClient(timeout=30) as client:
         for attempt, delay in enumerate(delays, start=1):
             try:
-                r=await client.post(TTS_API,headers={"x-goog-api-key":key,"Content-Type":"application/json"},json=payload)
+                r=await client.post(api,headers={"x-goog-api-key":key,"Content-Type":"application/json"},json=payload)
             except httpx.RequestError as exc:
                 if attempt == len(delays):
                     print("Gemini TTS network error",type(exc).__name__)
@@ -84,11 +99,13 @@ async def call_gemini_tts(text_value):
                 continue
             if r.status_code < 400:
                 try:
-                    audio=r.json().get("output_audio",{}).get("data")
-                    if audio:
-                        return audio,None
-                except Exception:
-                    pass
+                    parts=r.json().get("candidates",[{}])[0].get("content",{}).get("parts",[])
+                    for part in parts:
+                        audio=part.get("inlineData",{}).get("data") or part.get("inline_data",{}).get("data")
+                        if audio:
+                            return audio,None
+                except Exception as exc:
+                    print("Gemini TTS parse error",type(exc).__name__)
                 return None,"empty"
             if r.status_code in (408,429) or 500 <= r.status_code <= 599:
                 if attempt < len(delays):
