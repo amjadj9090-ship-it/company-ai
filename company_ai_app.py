@@ -219,21 +219,30 @@ async def chat(body:Chat):
         all_user_text = "\n".join(str(x.get("content","")).strip() for x in history if x.get("role") == "user")
         combined = all_user_text + "\n" + body.message
         parts=[p.strip() for p in combined.replace("\\n", ",").replace("،", ",").split(",") if p.strip()]
+        low_combined=combined.lower()
         email=next((p for p in parts if "@" in p and "." in p.split("@")[-1] and "لا يوجد" not in p.lower()), "")
         phone=next((p for p in parts if sum(ch.isdigit() for ch in p)>=6), "")
-        name=next((p for p in reversed(parts) if p not in {email,phone} and not any(ch.isdigit() for ch in p) and p not in ("لا يوجد","لا أعرف")), "")
-        if not (name and phone and email):
+        name=""
+        # Only accept an explicitly stated customer name; do not turn the CRM request itself into a name.
+        for marker in ("العميل ", "العميلة ", "اسمه ", "اسمها ", "اسم العميل ", "اسم العميلة "):
+            idx=low_combined.rfind(marker)
+            if idx >= 0:
+                candidate=combined[idx+len(marker):].split("\n",1)[0].split(",",1)[0].strip()
+                if candidate and not any(ch.isdigit() for ch in candidate) and candidate not in ("لا يوجد","لا أعرف"):
+                    name=candidate
+                    break
+        if not (name and phone):
             missing=[]
             if not name: missing.append("اسم العميل")
             if not phone: missing.append("رقم الهاتف")
-            if not email: missing.append("الإيميل")
             return {
-                "reply": "تمام، ضل ناقصني: " + "، ".join(missing) + ".",
+                "reply": "تمام، ضل ناقصني: " + "، ".join(missing) + ". والإيميل اختياري، إذا ما في إيميل ما في مشكلة.",
                 "session_id": str(uuid.uuid4()), "model": "company-ai-crm-intake",
                 "plan_id": plan["plan_id"], "task_id": None,
                 "department": "sales_crm", "execution": None, "status": "awaiting_crm_data",
             }
-        lead=ops.create_lead({"name":name,"contact":f"{phone} | {email}","service":"","message":combined},department="sales_crm")
+        contact=phone if not email else f"{phone} | {email}"
+        lead=ops.create_lead({"name":name,"contact":contact,"service":"","message":combined},department="sales_crm")
         lead_task=ops.create_task("Qualify new lead","sales_crm",lead_id=lead["lead_id"],approval_required=False)
         return {
             "reply": f"تمام، انضاف العميل {name} على الـCRM، وسجلنا بيانات التواصل للمتابعة.",
