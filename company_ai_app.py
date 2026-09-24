@@ -12,7 +12,7 @@ ROOT=Path(__file__).resolve().parent
 WEB=ROOT/"company_ai_site"
 MODEL=os.getenv("GEMINI_MODEL","gemini-3.5-flash-lite")
 API=f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent"
-TTS_MODEL=os.getenv("GEMINI_TTS_MODEL","gemini-3.1-flash-tts-preview")
+TTS_MODEL=os.getenv("GEMINI_TTS_MODEL","gemini-3.8-flash-tts")
 TTS_API="https://generativelanguage.googleapis.com/v1beta/interactions"
 app=FastAPI(title="Company AI",docs_url=None,redoc_url=None)
 
@@ -84,9 +84,9 @@ async def call_gemini_tts(text_value):
     key=os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if not key:
         return None,"missing_key"
-    # Use the same Gemini Interactions TTS path that produced Layan's
-    # earlier natural live voice. Keep the voice explicit and avoid a
-    # second generateContent conversion layer.
+    # Gemini 3.8 Flash TTS uses the Interactions API with structured
+    # speech_metadata for turn-level delivery style. The transcript itself
+    # must remain verbatim speech text; style belongs in the annotation.
     payload={
         "model":TTS_MODEL,
         "input":[
@@ -99,14 +99,14 @@ async def call_gemini_tts(text_value):
                         "annotations":[
                             {
                                 "type":"speech_metadata",
-                                "style":"Speak as Layan in a warm, natural, relaxed Syrian/Levantine Arabic voice when the text is Arabic; everyday spoken Syrian pronunciation; clear articulation; natural human pacing and pauses; never robotic, announcer-like, or overly formal; do not switch to Modern Standard Arabic unless the transcript is explicitly formal."
+                                "style":"warm, playful, friendly and naturally expressive; relaxed Syrian/Levantine Arabic when the transcript is Arabic; everyday Syrian pronunciation; clear articulation; natural conversational pacing and pauses; never robotic, announcer-like, or overly formal; do not switch to Modern Standard Arabic unless the transcript is explicitly formal."
                             }
                         ]
                     }
                 ]
             }
         ],
-        "response_format":{"type":"audio","mime_type":"audio/wav"},
+        "response_format":{"type":"audio"},
         "generation_config":{"speech_config":[{"voice":"Aoede"}]}
     }
     delays=(0.6,1.2,2.5)
