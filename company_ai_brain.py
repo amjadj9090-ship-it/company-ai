@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from threading import Lock
 from typing import Any
 import uuid
-from company_ai_ops import ops
+from company_ai_ops import ops, AGENTS
 
 @dataclass(frozen=True)
 class BrainDecision:
@@ -25,7 +25,7 @@ def execute_specialist(department: str, message: str, planned_actions: list[str]
     protected = department in {"finance_legal", "cybersecurity"}
     if protected and not owner_approved:
         return {"status":"blocked_pending_owner","department":department,"reason":"Owner approval is required before protected execution."}
-    agent = ops.AGENTS.get(department, {"name":"Central AI","capabilities":["general_business_routing"]}) if hasattr(ops, "AGENTS") else {"name":"Central AI","capabilities":["general_business_routing"]}
+    agent = AGENTS.get(department, {"name":"Central AI","capabilities":["general_business_routing"]})
     return {"status":"completed","agent":agent["name"],"department":department,"message_received":True,"actions_executed":list(planned_actions),"result":"specialist_plan_completed","protected":protected}
 
 
