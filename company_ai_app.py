@@ -148,6 +148,10 @@ async def gemini_connection_check():
 async def root():
     return FileResponse(WEB/"index.html",headers={"Cache-Control":"no-store"})
 
+@app.get("/dashboard")
+async def dashboard():
+    return FileResponse(WEB/"dashboard.html",headers={"Cache-Control":"no-store"})
+
 @app.get("/health")
 async def health():
     return {"status":"ok","company":"Company AI","model":MODEL}
