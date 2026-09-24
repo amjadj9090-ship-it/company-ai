@@ -11,6 +11,9 @@ MODEL=os.getenv("GEMINI_MODEL","gemini-3.5-flash")
 API=f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent"
 app=FastAPI(title="Company AI",docs_url=None,redoc_url=None)
 
+# Safe startup diagnostic: never prints the secret itself.
+print("Company AI Gemini configuration:", "configured" if (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")) else "missing")
+
 class Chat(BaseModel):
     message:str=Field(min_length=1,max_length=8000)
     history:list[dict[str,str]]=[]
