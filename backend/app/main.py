@@ -215,6 +215,36 @@ def public_sales_config(s: Session = Depends(db)):
     }
 
 
+def _extract_sales_lead_fields(message: str, history: list[dict], explicit_email: str | None = None) -> dict:
+    text = "\n".join(
+        [str(h.get("content") or h.get("message") or "") for h in history if isinstance(h, dict)]
+        + [message]
+    )
+    email = (explicit_email or "").strip() or None
+    if not email:
+        m = re.search(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}", text, re.I)
+        email = m.group(0) if m else None
+    phone = None
+    m = re.search(r"(?:\\+?\\d[\\d\\s().-]{7,}\\d)", text)
+    if m:
+        phone = re.sub(r"[^0-9+]", "", m.group(0))
+    name = None
+    for h in reversed(history):
+        if not isinstance(h, dict):
+            continue
+        role = str(h.get("role") or h.get("sender") or "").lower()
+        content = str(h.get("content") or h.get("message") or "").strip()
+        if role in {"user", "customer", "client"}:
+            nm = re.search(r"(?:اسمي|أنا|انا|my name is|i am|i'm)\\s+([A-Za-zÀ-ÿ؀-ۿ][A-Za-zÀ-ÿ؀-ۿ\\s'-]{1,79})", content, re.I)
+            if nm:
+                name = nm.group(1).strip(" .،,")
+                break
+    if not name:
+        nm = re.search(r"(?:اسمي|أنا|انا|my name is|i am|i'm)\\s+([A-Za-zÀ-ÿ؀-ۿ][A-Za-zÀ-ÿ؀-ۿ\\s'-]{1,79})", message, re.I)
+        if nm:
+            name = nm.group(1).strip(" .،,")
+    return {"name": name, "email": email, "phone": phone}
+
 @app.post('/api/sales-agent/{agent_id}/conversation')
 def public_sales_conversation(agent_id: str, x: SalesConversationIn, s: Session = Depends(db)):
     row = s.get(Entity, int(agent_id)) if agent_id.isdigit() else s.scalar(
@@ -225,36 +255,39 @@ def public_sales_conversation(agent_id: str, x: SalesConversationIn, s: Session 
     )
     if not row or row.kind != 'agent_builds' or row.data.get('slug') != 'public-sales-ai':
         raise HTTPException(status_code=404, detail='Sales agent not found')
-    reply = _layan_gemini_reply(
-        x.message,
-        x.language or 'auto',
-        x.history
-    )
+
+    fields = _extract_sales_lead_fields(x.message, x.history)
+    lead = None
+    if fields["email"] or fields["phone"]:
+        existing = None
+        for candidate in s.scalars(select(Entity).where(Entity.kind.in_(["leads", "crm_lead"]))).all():
+            data = candidate.data or {}
+            if (fields["email"] and data.get("email") == fields["email"]) or (fields["phone"] and data.get("phone") == fields["phone"]):
+                existing = candidate
+                break
+        if existing:
+            existing.data = {**(existing.data or {}), **{k:v for k,v in fields.items() if v}, "message": x.message}
+            existing.updated_at = now()
+            lead = {"id": existing.id, **existing.data}
+        else:
+            data = {"name": fields["name"] or "Website visitor", "email": fields["email"], "phone": fields["phone"], "source": "website-sales-agent", "service": None, "stage": "new", "owner": "sales", "message": x.message}
+            obj = Entity(kind="crm_lead", data=data, created_at=now(), updated_at=now())
+            s.add(obj)
+            s.flush()
+            lead = {"id": obj.id, **obj.data}
+
+    reply = _layan_gemini_reply(x.message, x.language or 'auto', x.history)
     source = 'gemini-free-tier'
     if not reply:
         reply = _layan_local_reply(x.message, x.language or 'auto')
         source = 'service-unavailable-fallback'
-    s.add(Audit(
-        actor='layan-public',
-        action='conversation_message',
-        entity='agent_builds',
-        entity_id=row.id,
-        details={
-            'message': x.message[:1000],
-            'language': x.language or 'auto',
-            'history_turns': len(x.history),
-            'reply': reply[:2000],
-            'source': source
-        },
-        created_at=now()
-    ))
+    s.add(Audit(actor='layan-public', action='conversation_message', entity='agent_builds', entity_id=row.id,
+                details={'message': x.message[:1000], 'language': x.language or 'auto', 'history_turns': len(x.history),
+                         'reply': reply[:2000], 'source': source, 'lead_fields': fields}, created_at=now()))
     s.commit()
-    return {
-        'reply': reply,
-        'agent_id': str(row.id),
-        'language': x.language or 'auto',
-        'source': source
-    }
+    return {'reply': reply, 'agent_id': str(row.id), 'language': x.language or 'auto',
+            'source': source, 'lead': lead, 'lead_fields': fields,
+            'lead_complete': all(fields.get(k) for k in ('name','email','phone'))}
 
 
 
