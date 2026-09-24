@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Company AI — Dashboard</title>
+<style>
+:root{--bg:#050a14;--p:#0c1728;--p2:#101e32;--line:#20334d;--t:#f4f8ff;--m:#9cafc6;--c:#55e4ff;--g:#38df9b;--v:#8b7cff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--t);font:15px/1.6 Arial,Tahoma,sans-serif}.wrap{max-width:1250px;margin:auto;padding:20px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:8px 0 25px}.logo{font-size:20px;font-weight:900}.logo b{color:var(--c)}.back{color:var(--c);text-decoration:none}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.card{background:linear-gradient(145deg,var(--p2),var(--p));border:1px solid #ffffff10;border-radius:18px;padding:18px}.label{color:var(--m);font-size:13px}.num{font-size:32px;font-weight:900;margin-top:5px}.section{margin-top:22px}.section h2{margin:0 0 12px;font-size:20px}.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}.row{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid #ffffff0b}.row:last-child{border-bottom:0}.pill{padding:3px 9px;border-radius:999px;background:#15324a;color:#bdeeff;font-size:12px;white-space:nowrap}.ok{color:var(--g)}.muted{color:var(--m)}.err{color:#ff9b9b}.refresh{border:1px solid var(--line);background:#0c1829;color:#fff;border-radius:10px;padding:9px 13px;cursor:pointer}
+@media(max-width:800px){.grid{grid-template-columns:1fr 1fr}.two{grid-template-columns:1fr}}@media(max-width:500px){.grid{grid-template-columns:1fr}}
+</style></head>
+<body><div class="wrap">
+<div class="top"><div class="logo">COMPANY <b>AI</b> / Dashboard</div><div><button class="refresh" onclick="load()">تحديث</button> <a class="back" href="/">الموقع ←</a></div></div>
+<div class="grid" id="stats"></div>
+<div class="section two">
+<div class="card"><h2>الوكلاء</h2><div id="agents" class="muted">جاري التحميل...</div></div>
+<div class="card"><h2>المشاريع</h2><div id="projects" class="muted">جاري التحميل...</div></div>
+</div>
+<div class="section two">
+<div class="card"><h2>العملاء المحتملون CRM</h2><div id="leads" class="muted">جاري التحميل...</div></div>
+<div class="card"><h2>المهام</h2><div id="tasks" class="muted">جاري التحميل...</div></div>
+</div>
+<div class="section card"><h2>Central AI — آخر الخطط</h2><div id="plans" class="muted">جاري التحميل...</div></div>
+</div>
+<script>
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function get(path){let r=await fetch(path);if(!r.ok)throw Error(path);return r.json()}
+function rows(items,fn,empty='لا يوجد بعد'){return items.length?items.slice(-8).reverse().map(fn).join(''):('<div class="muted">'+empty+'</div>')}
+async function load(){
+ try{
+  let [a,p,l,t,c]=await Promise.all([get('/api/agents'),get('/api/projects'),get('/api/crm/leads'),get('/api/tasks'),get('/api/central-ai/plans')]);
+  let av=Object.keys(a.agents||{}).length,pv=(p.projects||[]).length,lv=(l.leads||[]).length,tv=(t.tasks||[]).length,cv=(c.plans||[]).length;
+  document.getElementById('stats').innerHTML=[
+   ['الوكلاء',av],['المشاريع',pv],['Leads',lv],['الخطط',cv]
+  ].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="num">'+x[1]+'</div></div>').join('');
+  document.getElementById('agents').innerHTML=Object.entries(a.agents||{}).map(([k,v])=>'<div class="row"><span>'+esc(v.name)+'</span><span class="pill">'+esc(k)+'</span></div>').join('');
+  document.getElementById('projects').innerHTML=rows(p.projects||[],x=>'<div class="row"><span>'+esc(x.name)+'</span><span class="pill">'+esc(x.stage||x.status)+'</span></div>');
+  document.getElementById('leads').innerHTML=rows(l.leads||[],x=>'<div class="row"><span>'+esc(x.name)+'<br><span class="muted">'+esc(x.service)+'</span></span><span class="pill">'+esc(x.status)+'</span></div>');
+  document.getElementById('tasks').innerHTML=rows(t.tasks||[],x=>'<div class="row"><span>'+esc(x.title)+'</span><span class="pill">'+esc(x.status)+'</span></div>');
+  document.getElementById('plans').innerHTML=rows(c.plans||[],x=>'<div class="row"><span>'+esc(x.message)+'</span><span class="pill">'+esc(x.status)+'</span></div>');
+ }catch(e){
+  document.getElementById('stats').innerHTML='<div class="card err">تعذر تحميل بيانات اللوحة.</div>';
+ }
+}
+load();
+</script></body></html>
