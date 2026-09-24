@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 from company_ai_brain import brain, analyze
+from company_ai_ops import ops, AGENTS
 
 ROOT=Path(__file__).resolve().parent
 WEB=ROOT/"company_ai_site"
@@ -165,7 +166,39 @@ async def chat(body:Chat):
 
 @app.post("/api/leads")
 async def leads(body:Lead):
-    return {"accepted":True,"lead_id":str(uuid.uuid4()),"status":"new"}
+    decision=analyze(f"{body.service} {body.message}")
+    lead=ops.create_lead(body.model_dump(),department=decision.department)
+    task=ops.create_task("Qualify new lead",decision.department,lead_id=lead["lead_id"],approval_required=decision.required_approval)
+    return {"accepted":True,"lead":lead,"task":task}
+
+@app.get("/api/crm/leads")
+async def crm_leads(status:str|None=None):
+    return {"leads":ops.list_leads(status)}
+
+@app.get("/api/crm/leads/{lead_id}")
+async def crm_lead(lead_id:str):
+    matches=[x for x in ops.list_leads() if x["lead_id"]==lead_id]
+    if not matches:
+        return JSONResponse(status_code=404,content={"error":"lead_not_found"})
+    return {"lead":matches[0],"tasks":[x for x in ops.list_tasks() if x.get("lead_id")==lead_id]}
+
+@app.get("/api/agents")
+async def agents():
+    return {"agents":AGENTS}
+
+@app.get("/api/tasks")
+async def tasks(status:str|None=None):
+    return {"tasks":ops.list_tasks(status)}
+
+@app.post("/api/agents/route")
+async def route_agent(body:dict):
+    message=str(body.get("message","")).strip()
+    if not message:
+        return JSONResponse(status_code=400,content={"error":"message_required"})
+    decision=analyze(message,body.get("context") or {})
+    agent=AGENTS.get(decision.department,{"name":"Central AI","capabilities":["general_business_routing"]})
+    task=ops.create_task("Process routed request",decision.department,approval_required=decision.required_approval)
+    return {"decision":{"department":decision.department,"intent":decision.intent,"priority":decision.priority,"approval_mode":decision.approval_mode,"required_approval":decision.required_approval,"next_actions":list(decision.next_actions)},"agent":agent,"task":task}
 
 @app.post("/api/tts")
 async def tts(body:dict):
