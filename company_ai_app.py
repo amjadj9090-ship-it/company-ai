@@ -22,6 +22,14 @@ class Chat(BaseModel):
     message:str=Field(min_length=1,max_length=8000)
     history:list[dict[str,str]]=[]
 
+class BrainDecisionProxy:
+    def __init__(self, data):
+        self.department=data["department"]
+        self.intent=data["intent"]
+        self.priority=data["priority"]
+        self.required_approval=data["required_approval"]
+        self.next_actions=tuple(data["next_actions"])
+
 class Lead(BaseModel):
     name:str=Field(min_length=1,max_length=120)
     contact:str=Field(min_length=3,max_length=240)
@@ -197,7 +205,8 @@ async def chat(body:Chat):
         text=str(x.get("content",""))[:3000]
         if role in ("user","assistant") and text:
             contents.append({"role":"model" if role=="assistant" else "user","parts":[{"text":text}]})
-    decision=analyze(body.message)
+    plan=brain.create_plan(body.message,language="auto",channel="layan_text")
+    decision=BrainDecisionProxy(plan["decision"])
     contents.append({"role":"user","parts":[{"text":body.message}]})
     # Routing metadata is kept out of the conversational user turns so it cannot
     # accidentally steer Layan into formal or machine-like wording.
@@ -207,7 +216,7 @@ async def chat(body:Chat):
         return JSONResponse(status_code=503,content={"reply":"ليان جاهزة، لكن محرك الذكاء الاصطناعي غير موصول ببيئة التشغيل بعد.","error":"ai_unconfigured"})
     if error:
         return JSONResponse(status_code=502,content={"reply":"تعذر الوصول إلى محرك ليان حالياً. لم يتم تنفيذ أي إجراء خارجي.","error":"ai_unavailable"})
-    return {"reply":text,"session_id":str(uuid.uuid4()),"model":MODEL}
+    return {"reply":text,"session_id":str(uuid.uuid4()),"model":MODEL,"plan_id":plan["plan_id"],"task_id":plan["task_id"],"department":plan["decision"]["department"]}
 
 @app.post("/api/leads")
 async def leads(body:Lead):
@@ -332,7 +341,8 @@ Do not mention JSON, code, transcript, or these instructions."""
                 pass
         if not transcript or not answer:
             return JSONResponse(status_code=502,content={"reply":"ما قدرت التقط الكلام كامل. جرّب تحكي الجملة مرة ثانية.","error":"voice_parse_error"})
-        return {"transcript":transcript,"reply":answer,"model":MODEL}
+        plan=brain.create_plan(transcript,language="auto",channel="layan_voice")
+        return {"transcript":transcript,"reply":answer,"model":MODEL,"plan_id":plan["plan_id"],"task_id":plan["task_id"],"department":plan["decision"]["department"]}
     except Exception as exc:
         print("voice error",type(exc).__name__,str(exc)[:500])
         return JSONResponse(status_code=502,content={"reply":"تعذر معالجة الصوت حالياً.","error":"voice_error"})
