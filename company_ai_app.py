@@ -45,6 +45,19 @@ async def call_gemini(contents):
     text="".join(p.get("text","") for p in parts if p.get("text")).strip()
     return (text or None),(None if text else "empty")
 
+
+@app.on_event("startup")
+async def gemini_connection_check():
+    # One small live provider check at startup; never logs the API key or response content.
+    if not (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")):
+        print("Company AI Gemini live check: skipped (no key)")
+        return
+    try:
+        _, error = await call_gemini([{"role":"user","parts":[{"text":"Reply with exactly OK."}]}])
+        print("Company AI Gemini live check:", "success" if error is None else f"failed ({error})")
+    except Exception as exc:
+        print("Company AI Gemini live check: failed", type(exc).__name__)
+
 @app.get("/")
 async def root():
     return FileResponse(WEB/"index.html",headers={"Cache-Control":"no-store"})
