@@ -36,14 +36,38 @@ class CompanyOps:
             values=list(self.leads.values())
         return [x for x in values if not status or x["status"]==status]
 
-    def create_task(self, title:str, department:str, *, lead_id:str|None=None, approval_required:bool=False):
+    def create_task(self, title:str, department:str, *, lead_id:str|None=None,
+                    approval_required:bool=False, next_actions:tuple[str,...]=()):
         task_id="task_"+uuid.uuid4().hex[:12]
-        task={"task_id":task_id,"title":title,"department":department,"lead_id":lead_id,
-              "status":"awaiting_approval" if approval_required else "queued",
-              "approval_required":approval_required,
-              "created_at":datetime.now(timezone.utc).isoformat()}
+        agent=AGENTS.get(department, {"name":"Central AI","capabilities":["general_business_routing"]})
+        task={
+            "task_id":task_id,
+            "title":title,
+            "department":department,
+            "agent":agent["name"],
+            "lead_id":lead_id,
+            "status":"awaiting_approval" if approval_required else "queued",
+            "approval_required":approval_required,
+            "next_actions":list(next_actions),
+            "handoff_ready":not approval_required,
+            "created_at":datetime.now(timezone.utc).isoformat()
+        }
         with self._lock:self.tasks[task_id]=task
         return task
+
+    def mark_handoff_ready(self, task_id:str):
+        with self._lock:
+            task=self.tasks.get(task_id)
+            if not task:
+                return None
+            if task["approval_required"]:
+                task["handoff_ready"]=False
+                task["status"]="awaiting_approval"
+                return task
+            task["handoff_ready"]=True
+            task["status"]="ready_for_specialist"
+            task["updated_at"]=datetime.now(timezone.utc).isoformat()
+            return task
 
     def list_tasks(self,status:str|None=None):
         with self._lock:
