@@ -209,31 +209,31 @@ async def chat(body:Chat):
     decision=BrainDecisionProxy(plan["decision"])
     contents.append({"role":"user","parts":[{"text":body.message}]})
 
-    # CRM intake is a real workflow: first collect the minimum customer data,
-    # then create the lead instead of marking the chat request as completed.
-    if decision.department == "sales_crm":
-        history_text="\\n".join(str(x.get("content","")) for x in body.history[-6:] if x.get("content"))
-        asks_for_crm = any(k in history_text.lower() for k in ("اسم العميل","رقم الهاتف","الإيميل","البريد","whatsapp"))
-        if not asks_for_crm:
-            return {
-                "reply": "أكيد. ابعتلي اسم العميل، رقم الهاتف، والإيميل، وإذا بتعرف شو الخدمة اللي مهتم فيها اكتبلي ياها كمان.",
-                "session_id": str(uuid.uuid4()), "model": "company-ai-crm-intake",
-                "plan_id": plan["plan_id"],
-                "department": "sales_crm", "status": "awaiting_crm_data",
-            }
-        # Accept a simple comma/line-separated reply: name, phone, email, optional service.
-        parts=[p.strip() for p in body.message.replace("\\n", ",").split(",") if p.strip()]
-        email=next((p for p in parts if "@" in p and "." in p.split("@")[-1]), "")
-        phone=next((p for p in parts if sum(c.isdigit() for c in p)>=6), "")
-        name=next((p for p in parts if p not in {email,phone} and not any(c.isdigit() for c in p)), "")
+    # CRM intake is a real workflow: collect fields across multiple turns,
+    # then create the lead only when the minimum required data is complete.
+    if decision.department == "sales_crm" or any(
+        k in "\n".join(str(x.get("content","")) for x in body.history[-8:] if x.get("content")).lower()
+        for k in ("اسم العميل","رقم الهاتف","الإيميل","البريد","whatsapp")
+    ):
+        history = body.history[-10:]
+        all_user_text = "\n".join(str(x.get("content","")).strip() for x in history if x.get("role") == "user")
+        combined = all_user_text + "\n" + body.message
+        parts=[p.strip() for p in combined.replace("\\n", ",").replace("،", ",").split(",") if p.strip()]
+        email=next((p for p in parts if "@" in p and "." in p.split("@")[-1] and "لا يوجد" not in p.lower()), "")
+        phone=next((p for p in parts if sum(ch.isdigit() for ch in p)>=6), "")
+        name=next((p for p in reversed(parts) if p not in {email,phone} and not any(ch.isdigit() for ch in p) and p not in ("لا يوجد","لا أعرف")), "")
         if not (name and phone and email):
+            missing=[]
+            if not name: missing.append("اسم العميل")
+            if not phone: missing.append("رقم الهاتف")
+            if not email: missing.append("الإيميل")
             return {
-                "reply": "تمام، بس ناقصني واحد من هالثلاثة: اسم العميل، رقم الهاتف، أو الإيميل.",
+                "reply": "تمام، ضل ناقصني: " + "، ".join(missing) + ".",
                 "session_id": str(uuid.uuid4()), "model": "company-ai-crm-intake",
-                "plan_id": plan["plan_id"],
-                "department": "sales_crm", "status": "awaiting_crm_data",
+                "plan_id": plan["plan_id"], "task_id": None,
+                "department": "sales_crm", "execution": None, "status": "awaiting_crm_data",
             }
-        lead=ops.create_lead({"name":name,"contact":f"{phone} | {email}","service":"","message":body.message},department="sales_crm")
+        lead=ops.create_lead({"name":name,"contact":f"{phone} | {email}","service":"","message":combined},department="sales_crm")
         lead_task=ops.create_task("Qualify new lead","sales_crm",lead_id=lead["lead_id"],approval_required=False)
         return {
             "reply": f"تمام، انضاف العميل {name} على الـCRM، وسجلنا بيانات التواصل للمتابعة.",
