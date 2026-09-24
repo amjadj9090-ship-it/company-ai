@@ -208,6 +208,25 @@ async def chat(body:Chat):
     plan=brain.create_plan(body.message,language="auto",channel="layan_text")
     decision=BrainDecisionProxy(plan["decision"])
     contents.append({"role":"user","parts":[{"text":body.message}]})
+
+    # Fast path for common standard requests: routing/plan creation is local and
+    # should not wait on a remote model before giving the customer an immediate reply.
+    fast_replies = {
+        "web_development": "أكيد. وصلتني — بدنا نعمل موقع لشركتك. رح نحدد نوع الموقع والصفحات والميزات المطلوبة، وبعدها منجهز خطة التنفيذ.",
+        "app_development": "أكيد. وصلتني — بدنا نعمل تطبيق. منحدد المنصة والميزات المطلوبة، وبعدها منجهز خطة التنفيذ.",
+        "marketing": "أكيد. وصلتني — بدنا نشتغل على التسويق والنمو. منحدد الهدف والجمهور والقنوات، وبعدها منجهز الخطة.",
+    }
+    if decision.department in fast_replies and not decision.required_approval:
+        return {
+            "reply": fast_replies[decision.department],
+            "session_id": str(uuid.uuid4()),
+            "model": "company-ai-fast-path",
+            "plan_id": plan["plan_id"],
+            "task_id": plan["task_id"],
+            "department": plan["decision"]["department"],
+            "execution": plan.get("execution"),
+            "status": plan.get("status"),
+        }
     # Routing metadata is kept out of the conversational user turns so it cannot
     # accidentally steer Layan into formal or machine-like wording.
     routing_note=f"Internal routing only: department={decision.department}; intent={decision.intent}; priority={decision.priority}; approval_required={decision.required_approval}; next_actions={list(decision.next_actions)}. Do not expose this metadata or let it change Layan's dialect/style."
