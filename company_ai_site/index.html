@@ -37,7 +37,7 @@ footer{padding:32px 0;border-top:1px solid #ffffff0d;color:#8194aa;font-size:13p
 <button class="chat" onclick="openChat()">AI</button>
 <div class="modal" id="modal" onclick="if(event.target===this)closeChat()"><div class="box"><div class="mh"><b>ليان — Company AI</b><button class="close" onclick="closeChat()">×</button></div><div id="msgs" class="msgs"><div class="msg">مرحباً، أنا ليان. احكيلي شو بدك تبني.</div></div><div id="state" class="state"></div><div class="compose"><button class="mic" id="mic" onclick="voice()">🎙</button><input id="input" placeholder="اكتب طلبك..." onkeydown="if(event.key==='Enter')send()"><button class="send" onclick="send()">إرسال</button></div></div></div>
 <script>
-let hist=[],rec=null,chunks=[],recording=false,voiceSession=false,currentAudio=null,voiceRetry=false;
+let hist=[],rec=null,chunks=[],recording=false,voiceSession=false,currentAudio=null,voiceRetry=false,micStream=null;
 let wakeLock=null;
 async function keepScreenAwake(){
   try{if('wakeLock' in navigator){wakeLock=await navigator.wakeLock.request('screen')}}catch(e){}
@@ -46,7 +46,7 @@ async function releaseScreenWake(){try{if(wakeLock){await wakeLock.release();wak
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&voiceSession)keepScreenAwake()});
 
 function openChat(){document.getElementById('modal').classList.add('open');setTimeout(()=>document.getElementById('input').focus(),50)}
-function closeChat(){voiceSession=false;releaseScreenWake();if(recording&&rec)rec.stop();if(currentAudio){currentAudio.pause();currentAudio.currentTime=0;currentAudio=null}speechSynthesis?.cancel();document.getElementById('modal').classList.remove('open')}
+function closeChat(){voiceSession=false;releaseScreenWake();if(recording&&rec)rec.stop();if(micStream){micStream.getTracks().forEach(t=>t.stop());micStream=null}if(currentAudio){currentAudio.pause();currentAudio.currentTime=0;currentAudio=null}speechSynthesis?.cancel();document.getElementById('modal').classList.remove('open')}
 function add(r,t){let d=document.createElement('div');d.className='msg '+(r==='user'?'u':'');d.textContent=t;document.getElementById('msgs').appendChild(d);d.scrollIntoView({block:'nearest'});hist.push({role:r,content:t})}
 async function speakLayan(text){
   if(currentAudio){currentAudio.pause();currentAudio.currentTime=0;currentAudio=null}
@@ -81,7 +81,8 @@ async function startVoiceTurn(){
   if(!voiceSession||recording)return;
   if(!navigator.mediaDevices?.getUserMedia){document.getElementById('state').textContent='التسجيل الصوتي غير مدعوم هنا.';voiceSession=false;return}
   try{
-    let s=await navigator.mediaDevices.getUserMedia({audio:true});chunks=[];
+    if(!micStream||micStream.getTracks().every(t=>t.readyState==='ended'))micStream=await navigator.mediaDevices.getUserMedia({audio:true});
+    let s=micStream;chunks=[];
     let types=['audio/webm;codecs=opus','audio/webm','audio/mp4'];
     let mime=types.find(t=>MediaRecorder.isTypeSupported(t))||'';
     rec=new MediaRecorder(s,mime?{mimeType:mime}:undefined);
@@ -90,9 +91,9 @@ async function startVoiceTurn(){
     let an=ctx.createAnalyser(),src=ctx.createMediaStreamSource(s);an.fftSize=2048;src.connect(an);
     let data=new Uint8Array(an.fftSize),speechSeen=false,speechStartedAt=0,silenceSince=0,watch=null;
     rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
-    rec.onerror=()=>{if(watch)clearInterval(watch);ctx.close().catch(()=>{});s.getTracks().forEach(t=>t.stop());recording=false;document.getElementById('mic').textContent='🎙';document.getElementById('state').textContent='تعذر تسجيل الصوت.';if(voiceSession)setTimeout(startVoiceTurn,500)};
+    rec.onerror=()=>{if(watch)clearInterval(watch);ctx.close().catch(()=>{});s.getTracks().forEach(t=>t.stop());micStream=null;recording=false;document.getElementById('mic').textContent='🎙';document.getElementById('state').textContent='تعذر تسجيل الصوت.';if(voiceSession)setTimeout(startVoiceTurn,500)};
     rec.onstop=async()=>{
-      if(watch)clearInterval(watch);await ctx.close().catch(()=>{});s.getTracks().forEach(t=>t.stop());recording=false;document.getElementById('mic').textContent=voiceSession?'⏹':'🎙';
+      if(watch)clearInterval(watch);await ctx.close().catch(()=>{});recording=false;document.getElementById('mic').textContent=voiceSession?'⏹':'🎙';
       if(!chunks.length){
         if(voiceSession&&!voiceRetry){voiceRetry=true;document.getElementById('state').textContent='ما التقطت الصوت، عم جرّب مرة ثانية...';setTimeout(startVoiceTurn,500);return}
         document.getElementById('state').textContent='ما التقطت الصوت. جرّب مرة ثانية.';return
@@ -106,20 +107,20 @@ async function startVoiceTurn(){
           if(!r.ok){document.getElementById('state').textContent=x.reply||'تعذر معالجة الصوت حالياً.';return}
           if(x.transcript)add('user',x.transcript);
           if(x.reply){add('assistant',x.reply);document.getElementById('state').textContent='ليان عم تحضّر الصوت...';await speakLayan(x.reply)}
-          if(voiceSession){document.getElementById('state').textContent='احكي الآن...';setTimeout(startVoiceTurn,250)}else document.getElementById('state').textContent=''
+          if(voiceSession){document.getElementById('state').textContent='احكي الآن...';setTimeout(startVoiceTurn,100)}else document.getElementById('state').textContent=''
         }catch(e){document.getElementById('state').textContent='تعذر الاتصال بخدمة الصوت حالياً.'}
       };
       f.readAsDataURL(b)
     };
-    rec.start();recording=true;document.getElementById('mic').textContent='⏹';document.getElementById('state').textContent='احكي الآن...';
-    watch=setInterval(()=>{
+    rec.start();recording=true;let monitorAfter=Date.now()+350;document.getElementById('mic').textContent='⏹';document.getElementById('state').textContent='احكي الآن...';
+    watch=setInterval(()=>{if(Date.now()<monitorAfter)return;
       an.getByteTimeDomainData(data);let sum=0;for(let i=0;i<data.length;i++){let v=(data[i]-128)/128;sum+=v*v}
       let rms=Math.sqrt(sum/data.length);
       if(rms>0.02){speechSeen=true;if(!speechStartedAt)speechStartedAt=Date.now();silenceSince=0}
       else if(speechSeen&&Date.now()-speechStartedAt>700){if(!silenceSince)silenceSince=Date.now();if(Date.now()-silenceSince>1800){clearInterval(watch);rec.stop()}}
     },100)
   }catch(e){
-    s?.getTracks?.().forEach(t=>t.stop());document.getElementById('state').textContent='لم يتم السماح بالميكروفون.';voiceSession=false
+    s?.getTracks?.().forEach(t=>t.stop());micStream=null;document.getElementById('state').textContent='لم يتم السماح بالميكروفون.';voiceSession=false
   }
 }
 function service(v){document.getElementById('svc').value=v}
