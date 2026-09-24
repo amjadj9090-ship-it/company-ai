@@ -12,7 +12,7 @@ ROOT=Path(__file__).resolve().parent
 WEB=ROOT/"company_ai_site"
 MODEL=os.getenv("GEMINI_MODEL","gemini-3.5-flash-lite")
 API=f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent"
-TTS_MODEL=os.getenv("GEMINI_TTS_MODEL","gemini-2.5-flash-preview-tts")
+TTS_MODEL=os.getenv("GEMINI_TTS_MODEL","gemini-3.1-flash-tts-preview")
 TTS_API="https://generativelanguage.googleapis.com/v1beta/interactions"
 app=FastAPI(title="Company AI",docs_url=None,redoc_url=None)
 
