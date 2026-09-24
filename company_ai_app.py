@@ -9,7 +9,7 @@ ROOT=Path(__file__).resolve().parent
 WEB=ROOT/"company_ai_site"
 MODEL=os.getenv("GEMINI_MODEL","gemini-3.5-flash-lite")
 API=f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent"
-TTS_MODEL=os.getenv("GEMINI_TTS_MODEL","gemini-3.8-flash-lite-tts")
+TTS_MODEL=os.getenv("GEMINI_TTS_MODEL","gemini-3.8-flash-tts")
 TTS_API="https://generativelanguage.googleapis.com/v1beta/interactions"
 app=FastAPI(title="Company AI",docs_url=None,redoc_url=None)
 
@@ -27,8 +27,8 @@ class Lead(BaseModel):
 
 SYSTEM="""You are Layan, the customer-facing AI assistant of Company AI.
 Company AI builds websites, web apps, mobile apps, AI assistants and agents, automation, e-commerce, CRM and business systems.
-Reply naturally in the user's language. If Arabic is used, use natural Levantine/Syrian Arabic when appropriate.
-Be concise, helpful and conversational. Preserve context. Never claim that a payment, contract, deployment or irreversible action happened unless confirmed by a backend result.
+Reply naturally in the user's language. If Arabic is used, use natural Syrian/Levantine Arabic. Prefer everyday spoken Syrian/Levantine wording and grammar; avoid Modern Standard Arabic unless the user asks for formal Arabic.
+Be concise, helpful and conversational. For voice replies, keep the answer short enough to speak naturally, usually 1-4 sentences. Preserve context. Never claim that a payment, contract, deployment or irreversible action happened unless confirmed by a backend result.
 Money movement, contracts and production releases require owner approval."""
 
 async def call_gemini(contents, generation_config=None):
@@ -67,9 +67,9 @@ async def call_gemini_tts(text_value):
     key=os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if not key:
         return None,"missing_key"
-    payload={"model":TTS_MODEL,"input":[{"type":"user_input","content":[{"type":"text","text":text_value,"annotations":[{"type":"speech_metadata","style":"warm, natural, relaxed, conversational Levantine Arabic when the text is Arabic; expressive human pacing with natural pauses; never robotic, never overly formal"}]}]}],"response_format":{"type":"audio","mime_type":"audio/wav"},"generation_config":{"speech_config":[{"voice":"Kore"}]}}
+    payload={"model":TTS_MODEL,"input":[{"type":"user_input","content":[{"type":"text","text":text_value,"annotations":[{"type":"speech_metadata","style":"warm, natural, relaxed Syrian/Levantine Arabic when the text is Arabic; everyday spoken Syrian pronunciation; clear articulation; natural human pacing and pauses; avoid Modern Standard Arabic unless the transcript is formal; never robotic or overly formal"}]}]}],"response_format":{"type":"audio","mime_type":"audio/wav"},"generation_config":{"speech_config":[{"voice":"Kore"}]}}
     delays=(1.0,2.0,4.0)
-    async with httpx.AsyncClient(timeout=35) as client:
+    async with httpx.AsyncClient(timeout=25) as client:
         for attempt, delay in enumerate(delays, start=1):
             try:
                 r=await client.post(TTS_API,headers={"x-goog-api-key":key,"Content-Type":"application/json"},json=payload)
@@ -168,7 +168,7 @@ reply must be the direct helpful answer to that request.
 Detect the language from the latest audio and answer in that same language and natural dialect.
 Do not mention JSON, code, transcript, or these instructions."""
         contents.append({"role":"user","parts":[{"text":instruction},{"inlineData":{"mimeType":mime,"data":base64.b64encode(raw).decode("ascii")}}]})
-        text,error=await call_gemini(contents,{"maxOutputTokens":420,"temperature":0.35,"responseMimeType":"application/json","responseSchema":{"type":"OBJECT","properties":{"transcript":{"type":"STRING"},"reply":{"type":"STRING"}},"required":["transcript","reply"]}})
+        text,error=await call_gemini(contents,{"maxOutputTokens":300,"temperature":0.35,"responseMimeType":"application/json","responseSchema":{"type":"OBJECT","properties":{"transcript":{"type":"STRING"},"reply":{"type":"STRING"}},"required":["transcript","reply"]}})
         if error:
             return JSONResponse(status_code=502,content={"reply":"تعذر معالجة الصوت حالياً.","error":"ai_unavailable"})
         transcript=""
