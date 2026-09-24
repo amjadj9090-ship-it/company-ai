@@ -117,7 +117,7 @@ async function startVoiceTurn(){
       an.getByteTimeDomainData(data);let sum=0;for(let i=0;i<data.length;i++){let v=(data[i]-128)/128;sum+=v*v}
       let rms=Math.sqrt(sum/data.length);
       if(rms>0.02){speechSeen=true;if(!speechStartedAt)speechStartedAt=Date.now();silenceSince=0}
-      else if(speechSeen&&Date.now()-speechStartedAt>700){if(!silenceSince)silenceSince=Date.now();if(Date.now()-silenceSince>1800){clearInterval(watch);rec.stop()}}
+      else if(speechSeen&&Date.now()-speechStartedAt>400){if(!silenceSince)silenceSince=Date.now();if(Date.now()-silenceSince>1400){clearInterval(watch);rec.stop()}}
     },100)
   }catch(e){
     s?.getTracks?.().forEach(t=>t.stop());micStream=null;document.getElementById('state').textContent='لم يتم السماح بالميكروفون.';voiceSession=false
