@@ -151,15 +151,15 @@ def _extract_lead_fields(message: str, history: list[dict[str, Any]], explicit_e
     joined="\n".join(texts)
     email=(explicit_email or "").strip()
     if not email:
-        m=re.search(r"\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}\\b", joined)
+        m=re.search(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b", joined)
         if m: email=m.group(0)
     phone=""
-    m=re.search(r"(?<!\\d)(?:\\+?[0-9][0-9 ()-]{7,}[0-9])(?!\\d)", joined)
-    if m: phone=re.sub(r"\\s+"," ",m.group(0)).strip()
+    m=re.search(r"(?<!\d)(?:\+?[0-9][0-9 ()-]{7,}[0-9])(?!\d)", joined)
+    if m: phone=re.sub(r"\s+"," ",m.group(0)).strip()
     name=""
     patterns=(
-        r"(?:my name is|i am|i'm|name is)\\s+([A-Za-z][A-Za-z .'-]{1,100})",
-        r"(?:اسمي|أنا|انا|اسم العميل هو|اسم العميل:)\\s*([\\u0600-\\u06ffA-Za-z][\\u0600-\\u06ffA-Za-z .'-]{1,100})",
+        r"(?:my name is|i am|i'm|name is)\s+([A-Za-z][A-Za-z .'-]{1,100})",
+        r"(?:اسمي|أنا|انا|اسم العميل هو|اسم العميل:)\s*([\u0600-\u06ffA-Za-z][\u0600-\u06ffA-Za-z .'-]{1,100})",
     )
     for pattern in patterns:
         matches=list(re.finditer(pattern, joined, flags=re.I))
@@ -225,7 +225,7 @@ def sales_conversation(agent_id:int,payload:Conversation):
         "status":"ok","reply":reply,"language":language,"engine":"gemini",
         "lead":lead,
         "lead_fields":fields,
-        "lead_complete":bool(fields["name"]),
+        "lead_complete":all(bool(fields[k]) for k in ("name","email","phone")),
         "recommendations":[{"name":"Website Starter"},{"name":"Website Pro"},{"name":"Business App"}],
     }
 
