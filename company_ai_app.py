@@ -4,6 +4,7 @@ import httpx
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
+from company_ai_brain import brain, analyze
 
 ROOT=Path(__file__).resolve().parent
 WEB=ROOT/"company_ai_site"
@@ -115,6 +116,35 @@ async def health():
 async def capabilities():
     return {"services":["websites","apps","ai","automation","growth","ecommerce","enterprise"],"qa_gate":True}
 
+
+@app.post("/api/central-ai/intake")
+async def central_ai_intake(body:dict):
+    message=str(body.get("message","")).strip()
+    if not message:
+        return JSONResponse(status_code=400,content={"error":"message_required"})
+    p=brain.create_plan(message,language=str(body.get("language","auto")),channel=str(body.get("channel","website")),context=body.get("context") or {})
+    return {"status":"ok","decision":{**p["decision"],"plan_id":p["plan_id"]},"guardrails":p["guardrails"]}
+
+@app.post("/api/central-ai/plan")
+async def central_ai_plan(body:dict):
+    return await central_ai_intake(body)
+
+@app.get("/api/central-ai/plans")
+async def central_ai_plans():
+    return {"plans":brain.all_plans()}
+
+@app.post("/api/central-ai/plans/{plan_id}/advance")
+async def central_ai_advance(plan_id:str,body:dict):
+    return brain.advance(plan_id,confirm=bool(body.get("confirm",False)),owner_approved=bool(body.get("owner_approved",False)))
+
+@app.post("/api/brain/plan")
+async def brain_plan(body:dict):
+    message=str(body.get("message","")).strip()
+    if not message:
+        return JSONResponse(status_code=400,content={"error":"message_required"})
+    decision=analyze(message,body.get("context") or {})
+    return {"status":"ok","decision":{"department":decision.department,"intent":decision.intent,"priority":decision.priority,"approval_mode":decision.approval_mode,"required_approval":decision.required_approval,"next_actions":list(decision.next_actions)},"guardrails":{"owner_approval_required_for_sensitive_commitments":True,"money_movement_allowed_without_owner":False,"contract_signing_allowed_without_owner":False}}
+
 @app.post("/api/chat")
 async def chat(body:Chat):
     contents=[]
@@ -123,7 +153,9 @@ async def chat(body:Chat):
         text=str(x.get("content",""))[:3000]
         if role in ("user","assistant") and text:
             contents.append({"role":"model" if role=="assistant" else "user","parts":[{"text":text}]})
+    decision=analyze(body.message)
     contents.append({"role":"user","parts":[{"text":body.message}]})
+    contents.append({"role":"user","parts":[{"text":f"Internal Company AI routing context: department={decision.department}; intent={decision.intent}; priority={decision.priority}; approval_required={decision.required_approval}; next_actions={list(decision.next_actions)}. Use this only to route and answer the user; do not claim execution."}]})
     text,error=await call_gemini(contents)
     if error=="missing_key":
         return JSONResponse(status_code=503,content={"reply":"ليان جاهزة، لكن محرك الذكاء الاصطناعي غير موصول ببيئة التشغيل بعد.","error":"ai_unconfigured"})
