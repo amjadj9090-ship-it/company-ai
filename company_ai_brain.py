@@ -21,14 +21,6 @@ SENSITIVE = (
     "سحب", "تحويل", "بنك", "دفع", "دفع", "عقد", "توقيع", "قانوني", "خصم استثنائي",
 )
 
-def execute_specialist(department: str, message: str, planned_actions: list[str], *, owner_approved: bool = False):
-    protected = department in {"finance_legal", "cybersecurity"}
-    if protected and not owner_approved:
-        return {"status":"blocked_pending_owner","department":department,"reason":"Owner approval is required before protected execution."}
-def execute_specialist(department: str, message: str, planned_actions: list[str], *, owner_approved: bool = False):
-    protected = department in {"finance_legal", "cybersecurity"}
-    if protected and not owner_approved:
-        return {"status":"blocked_pending_owner","department":department,"reason":"Owner approval is required before protected execution."}
     agent = AGENTS.get(department, {"name":"Central AI","capabilities":["general_business_routing"]})
     result = "specialist_plan_completed"
     artifact = None
