@@ -140,6 +140,15 @@ def analyze(message: str, context: dict[str, Any] | None = None) -> BrainDecisio
         )
 
     if any(k in text for k in (
+        "automation", "automate", "workflow", "أتمتة", "اتمتة", "أتمت",
+        "تشغيل تلقائي", "سير عمل", "ربط تلقائي",
+    )):
+        return BrainDecision(
+            "automation", "automation_request", "normal", "auto_standard", False,
+            ("define_workflow", "identify_integrations", "prepare_automation_plan"),
+        )
+
+    if any(k in text for k in (
         "app", "application", "mobile", "تطبيق", "ابلكيشن",
     )):
         return BrainDecision(
