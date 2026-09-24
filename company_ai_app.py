@@ -218,8 +218,8 @@ async def chat(body:Chat):
             return {
                 "reply": "أكيد. ابعتلي اسم العميل، رقم الهاتف، والإيميل، وإذا بتعرف شو الخدمة اللي مهتم فيها اكتبلي ياها كمان.",
                 "session_id": str(uuid.uuid4()), "model": "company-ai-crm-intake",
-                "plan_id": plan["plan_id"], "task_id": plan["task_id"],
-                "department": "sales_crm", "execution": plan.get("execution"), "status": plan.get("status"),
+                "plan_id": plan["plan_id"],
+                "department": "sales_crm", "status": "awaiting_crm_data",
             }
         # Accept a simple comma/line-separated reply: name, phone, email, optional service.
         parts=[p.strip() for p in body.message.replace("\\n", ",").split(",") if p.strip()]
@@ -230,8 +230,8 @@ async def chat(body:Chat):
             return {
                 "reply": "تمام، بس ناقصني واحد من هالثلاثة: اسم العميل، رقم الهاتف، أو الإيميل.",
                 "session_id": str(uuid.uuid4()), "model": "company-ai-crm-intake",
-                "plan_id": plan["plan_id"], "task_id": plan["task_id"],
-                "department": "sales_crm", "execution": plan.get("execution"), "status": plan.get("status"),
+                "plan_id": plan["plan_id"],
+                "department": "sales_crm", "status": "awaiting_crm_data",
             }
         lead=ops.create_lead({"name":name,"contact":f"{phone} | {email}","service":"","message":body.message},department="sales_crm")
         lead_task=ops.create_task("Qualify new lead","sales_crm",lead_id=lead["lead_id"],approval_required=False)
