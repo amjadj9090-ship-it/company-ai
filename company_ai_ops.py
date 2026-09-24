@@ -7,12 +7,14 @@ import uuid
 AGENTS = {
     "sales_crm": {"name":"Sales & CRM Agent","capabilities":["lead_capture","lead_qualification","follow_up"]},
     "web_development": {"name":"Web Development Agent","capabilities":["website_scope","technical_plan","qa"]},
+    "website_growth": {"name":"Website Growth Agent","capabilities":["site_audit","conversion","optimization"]},
     "app_development": {"name":"App Development Agent","capabilities":["app_scope","technical_plan","qa"]},
     "marketing": {"name":"Marketing & Growth Agent","capabilities":["campaigns","seo","conversion"]},
     "automation": {"name":"Automation Agent","capabilities":["workflow_design","integrations","automation"]},
     "finance_legal": {"name":"Finance & Legal Gate","capabilities":["approval_preparation","contract_review"]},
     "cybersecurity": {"name":"Security Agent","capabilities":["defensive_review","security_scope"]},
     "monitoring_operations": {"name":"Operations Agent","capabilities":["monitoring","incident_triage","backups"]},
+    "entrepreneurship": {"name":"Entrepreneurship Agent","capabilities":["idea_qualification","market_analysis","roadmap"]},
 }
 
 class CompanyOps:
