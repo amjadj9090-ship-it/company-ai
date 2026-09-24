@@ -64,8 +64,8 @@ async def call_gemini(contents, generation_config=None):
     if generation_config:
         config.update(generation_config)
     payload={"systemInstruction":{"parts":[{"text":SYSTEM}]},"contents":contents,"generationConfig":config}
-    delays=(1.0,2.0,4.0)
-    async with httpx.AsyncClient(timeout=45) as client:
+    delays=(1.0,2.0,4.0,8.0)
+    async with httpx.AsyncClient(timeout=60) as client:
         for attempt, delay in enumerate(delays, start=1):
             try:
                 r=await client.post(API,headers={"x-goog-api-key":key,"Content-Type":"application/json"},json=payload)
