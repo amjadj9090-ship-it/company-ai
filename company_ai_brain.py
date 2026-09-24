@@ -54,11 +54,19 @@ def execute_specialist(
         artifact = {
             "type": "website_growth_plan",
             "title": "Website Growth Audit & Optimization Plan",
+            "objective": "فحص وتحسين نمو الموقع",
+            "checks": [
+                "فحص تجربة المستخدم وسهولة التنقل",
+                "مراجعة صفحات الهبوط ونقاط التحويل",
+                "مراجعة SEO والمحتوى والأداء",
+                "تحديد فجوات النمو وترتيب الأولويات",
+            ],
             "next_actions": [
                 "inspect_site",
                 "identify_growth_gaps",
                 "prepare_optimization_plan",
             ],
+            "note": "هذه خطة أولية؛ لا يتم تعديل الموقع أو إطلاق تغييرات قبل تحديد النطاق والموافقة المطلوبة.",
         }
 
     if department == "marketing":
