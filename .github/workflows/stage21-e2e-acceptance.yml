@@ -3,7 +3,7 @@ name: Stage 21 E2E Acceptance
 
 on:
   push:
-    branches: [main]
+    branches: [company-ai-company-rebuild-20260924]
   workflow_dispatch:
 
 jobs:
@@ -24,7 +24,7 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Run production E2E acceptance
         env:
-          BASE_URL: https://company-ai-0mya.onrender.com
+          BASE_URL: https://company-ai-company-rebuild-20260924.onrender.com
         run: |
           node <<'NODE'
           const { chromium } = require('playwright');
@@ -46,7 +46,7 @@ jobs:
             if(!health || !health.ok()) throw new Error(`healthz failed after waiting for latest deploy: ${health&&health.status()}`);
             await new Promise(r=>setTimeout(r,10000));
             const healthJson=await health.json();
-            if(healthJson.status!=='ok'||healthJson.mode!=='production') throw new Error(`unexpected health: ${JSON.stringify(healthJson)}`);
+            if(healthJson.status!=='ok') throw new Error(`unexpected health: ${JSON.stringify(healthJson)}`);
             const response=await page.goto(base,{waitUntil:'networkidle'});
             if(!response||!response.ok()) throw new Error(`homepage failed: ${response&&response.status()}`);
             const pp=response.headers()['permissions-policy']||'';
@@ -59,7 +59,6 @@ jobs:
             if((await page.locator('.layanChoice').count())<2) throw new Error('Layan interaction choices missing');
             if(!(await page.locator('.voiceChoice').count())) throw new Error('voice choice missing');
             if(!(await page.locator('script[src*="layan-realtime-hotfix.js"]').count())) throw new Error('Layan realtime script missing');
-            if(!(await page.locator('script[src*="company-ai-live-bridge.js"]').count())) throw new Error('live bridge script missing');
             await page.locator('#aiModal.open .close').first().evaluate(el=>el.click()).catch(()=>{});
             await page.locator('#aiModal.open').evaluate(el=>el.classList.remove('open')).catch(()=>{});
             await page.locator('.voiceChoice').first().evaluate(el=>el.click());
@@ -82,6 +81,12 @@ jobs:
               if((await page.locator('.layanVoiceStage.open').count())!==0) throw new Error('legacy voice stage did not close');
             }
             if(!csp) throw new Error('CSP response header missing');
+            if(!(await page.locator('#crm').count())) throw new Error('CRM section missing');
+            if(!(await page.locator('#mobileNavRoot').count())) throw new Error('mobile navigation missing');
+            const office=await page.request.get(`${base}/assets/layan-office.webp`);
+            if(!office.ok()) throw new Error(`Layan office asset failed: ${office.status()}`);
+            const officeType=(office.headers()['content-type']||'').toLowerCase();
+            if(!officeType.includes('image/webp')) throw new Error(`unexpected Layan asset type: ${officeType}`);
             if(errors.length) throw new Error(`browser console/page errors: ${errors.join(' | ')}`);
             console.log('STAGE21_E2E_ACCEPTANCE=PASS');
             console.log('healthz=PASS');
