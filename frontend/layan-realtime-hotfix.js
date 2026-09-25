@@ -14,8 +14,8 @@
 
     function blurKeyboard(){ try{ const a=document.activeElement; if(a&&typeof a.blur==='function')a.blur(); if(document.body)document.body.focus?.({preventScroll:true}); }catch(_){} }
 
-    async function keepAwake(){ try{ if('wakeLock' in navigator){ if(!state.wakeLock||state.wakeLock.released)state.wakeLock=await navigator.wakeLock.request('screen'); } }catch(){} } 
-    function releaseAwake(){try{state.wakeLock?.release()}catch(){}state.wakeLock=null}
+    async function keepAwake(){ try{ if('wakeLock' in navigator){ if(!state.wakeLock||state.wakeLock.released)state.wakeLock=await navigator.wakeLock.request('screen'); } }catch(e){} } 
+    function releaseAwake(){try{state.wakeLock?.release()}catch(e){}state.wakeLock=null}
 
     function stopLevel(){ if(state.levelTimer)clearInterval(state.levelTimer); state.levelTimer=null; const s=stage();if(s)s.style.setProperty('--audio-level','0'); } 
     function startLevel(){ 
@@ -42,12 +42,12 @@
             },80); 
         }catch(_){} 
     }
-    function stopStream(){ if(state.stream){state.stream.getTracks().forEach(t=>{try{t.stop()}catch(){}});state.stream=null} stopLevel(); } 
+    function stopStream(){ if(state.stream){state.stream.getTracks().forEach(t=>{try{t.stop()}catch(e){}});state.stream=null} stopLevel(); } 
     function cleanup(){ 
         if(state.silenceTimer)clearTimeout(state.silenceTimer); 
         if(state.maxTurnTimer)clearTimeout(state.maxTurnTimer); 
         state.silenceTimer=null;state.maxTurnTimer=null; 
-        try{if(state.recorder&&state.recorder.state!=='inactive')state.recorder.stop()}catch(){} 
+        try{if(state.recorder&&state.recorder.state!=='inactive')state.recorder.stop()}catch(e){} 
         state.recorder=null;state.recording=false;state.busy=false;state.speaking=false; 
         stopStream();releaseAwake();setMode(''); 
     }
