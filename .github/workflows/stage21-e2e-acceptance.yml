@@ -46,6 +46,16 @@ jobs:
               await new Promise(r=>setTimeout(r,5000));
             }
             if(!health || !health.ok()) throw new Error(`healthz failed after waiting for latest deploy: ${health&&health.status()}`);
+            let runtimeReady=false;
+            for(let attempt=1; attempt<=24; attempt++) {
+              try {
+                const asset=await page.request.get(`${base}/layan-realtime-hotfix.js`, {timeout:5000});
+                const source=await asset.text();
+                if(asset.ok() && !source.includes('catch(){')) { runtimeReady=true; break; }
+              } catch (_) {}
+              await new Promise(r=>setTimeout(r,5000));
+            }
+            if(!runtimeReady) throw new Error('latest Layan runtime was not observed after waiting for deployment');
             await new Promise(r=>setTimeout(r,10000));
             const healthJson=await health.json();
             if(healthJson.status!=='ok') throw new Error(`unexpected health: ${JSON.stringify(healthJson)}`);
