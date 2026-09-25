@@ -34,7 +34,7 @@ jobs:
             const page = await browser.newPage({viewport:{width:390,height:844},locale:'ar-SA'});
             const errors=[];
             page.on('pageerror',e=>errors.push(e.stack||String(e)));
-            page.on('console',m=>{if(m.type()==='error') errors.push(m.text());});
+            page.on('console',m=>{if(m.type()==='error'){const l=m.location();errors.push(`${m.text()} @ ${l.url}:${l.lineNumber}:${l.columnNumber}`);}});
             let health;
             for (let attempt=1; attempt<=24; attempt++) {
               try {
