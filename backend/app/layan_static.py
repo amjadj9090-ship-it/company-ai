@@ -64,7 +64,10 @@ def layan_realtime_hotfix():
 
 @router.get("/assets/layan-office.webp", include_in_schema=False)
 def layan_office_asset():
-    """Serve the approved repository WebP asset instead of the legacy fallback."""
+    """Serve the approved repository WebP asset; keep the encoded-text fallback only for legacy packages."""
+    binary = _FRONTEND.parent / "assets" / "layan-office.webp"
+    if binary.exists():
+        return FileResponse(binary, media_type="image/webp", headers={"Cache-Control":"no-store, no-cache, must-revalidate, max-age=0","Pragma":"no-cache"})
     try:
         raw = (_FRONTEND.parent / "assets" / "layan-office.webp.txt").read_text(encoding="utf-8").strip()
         return Response(content=base64.b64decode(raw), media_type="image/webp", headers={"Cache-Control":"no-store, no-cache, must-revalidate, max-age=0","Pragma":"no-cache"})
