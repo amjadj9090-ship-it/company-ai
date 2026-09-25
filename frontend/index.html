@@ -189,4 +189,22 @@ function readSecurityLog(){try{return JSON.parse(localStorage.getItem(OWNER_GATE
 function ownerGate(action,approvedByOwner=false){if(SENSITIVE_ACTIONS.includes(action)&&!approvedByOwner){requestOwnerApproval(action);return false}return true}
 function refreshCentralDashboard(){const crm=(()=>{try{return JSON.parse(localStorage.getItem('company_ai_crm_v1')||'[]')}catch(e){return[]}})();const pending=(()=>{try{return JSON.parse(localStorage.getItem(OWNER_PENDING_KEY)||'[]').filter(x=>x.status==='pending')}catch(e){return[]}})();const log=readSecurityLog();const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v};set('dashClients',crm.length);set('dashPending',pending.length);set('dashSecurity',log.length);set('dashOperational','🟢 يعمل ضمن الصلاحيات المحددة — العمليات الحساسة مقفلة حتى موافقة المالك.');const box=document.getElementById('securityLog');if(box)box.innerHTML=log.length?log.slice().reverse().map(x=>'<div style="padding:8px 0;border-bottom:1px solid #e5eaf0"><b>'+String(x.action).replace(/[<>]/g,'')+'</b> — '+String(x.result).replace(/[<>]/g,'')+'<br><small>'+new Date(x.time).toLocaleString()+'</small></div>').join(''):'<p>لا توجد أحداث مسجلة.</p>'}
 window.requestOwnerApproval=requestOwnerApproval;window.ownerGate=ownerGate;window.refreshCentralDashboard=refreshCentralDashboard;document.addEventListener('DOMContentLoaded',refreshCentralDashboard);
+</script><script>
+(function(){
+  function forceMobileMenu(){
+    if(window.innerWidth>900)return;
+    if(document.getElementById('forcedMobileNav'))return;
+    var b=document.createElement('button');
+    b.id='forcedMobileNav'; b.type='button'; b.textContent='☰ القائمة';
+    b.setAttribute('aria-label','فتح قائمة الموقع');
+    b.style.cssText='position:fixed!important;top:82px!important;right:12px!important;z-index:2147483647!important;display:block!important;visibility:visible!important;opacity:1!important;background:#102b45!important;color:#fff!important;border:2px solid #67e8f9!important;border-radius:12px!important;padding:12px 16px!important;font-size:16px!important;font-weight:900!important;box-shadow:0 8px 30px rgba(0,0,0,.7)!important';
+    b.onclick=function(){
+      var m=document.getElementById('mobileMenu');
+      if(m){m.classList.add('open');m.style.cssText+=';display:block!important;position:fixed!important;top:135px!important;right:12px!important;left:12px!important;z-index:2147483646!important;max-height:70vh!important;overflow:auto!important;';}
+    };
+    document.body.appendChild(b);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',forceMobileMenu);else forceMobileMenu();
+  window.addEventListener('resize',function(){if(window.innerWidth<=900)forceMobileMenu();});
+})();
 </script><script src="layan-realtime-hotfix.js?v=20260920-rootfix3"></script><script>function toggleMobileMenu(){const m=document.getElementById("mobileMenu"),b=document.querySelector(".mobileMenuBtn");if(!m)return;const open=!m.classList.contains("open");m.classList.toggle("open",open);m.setAttribute("aria-hidden",String(!open));if(b)b.setAttribute("aria-expanded",String(open));}function closeMobileMenu(){const m=document.getElementById("mobileMenu"),b=document.querySelector(".mobileMenuBtn");if(m)m.classList.remove("open");if(m)m.setAttribute("aria-hidden","true");if(b)b.setAttribute("aria-expanded","false");}</script></body></html>
