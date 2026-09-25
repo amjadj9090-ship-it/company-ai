@@ -22,6 +22,21 @@ jobs:
           npm init -y
           npm install --no-save playwright@1.55.0
           npx playwright install --with-deps chromium
+      - name: Check frontend JavaScript syntax
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const vm = require('vm');
+          const html = fs.readFileSync('frontend/index.html','utf8');
+          const scripts = [...html.matchAll(/<script(?:[^>]*)>([\\s\\S]*?)<\\/script>/gi)];
+          for (let i=0;i<scripts.length;i++) {
+            try { new vm.Script(scripts[i][1], {filename:`frontend/index.html#script-${i+1}`}); }
+            catch (e) { console.error(e.stack || e); process.exit(1); }
+          }
+          console.log('FRONTEND_JS_SYNTAX=PASS');
+          NODE
+      - name: Check Layan realtime script syntax
+        run: node --check frontend/layan-realtime-hotfix.js
       - name: Run production E2E acceptance
         env:
           BASE_URL: https://company-ai-company-rebuild-20260924.onrender.com
