@@ -33,7 +33,7 @@ jobs:
             const browser = await chromium.launch({headless:true,args:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
             const page = await browser.newPage({viewport:{width:390,height:844},locale:'ar-SA'});
             const errors=[];
-            page.on('pageerror',e=>errors.push(String(e)));
+            page.on('pageerror',e=>errors.push(e.stack||String(e)));
             page.on('console',m=>{if(m.type()==='error') errors.push(m.text());});
             let health;
             for (let attempt=1; attempt<=24; attempt++) {
