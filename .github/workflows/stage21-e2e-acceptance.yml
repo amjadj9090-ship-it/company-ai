@@ -28,7 +28,7 @@ jobs:
           const fs = require('fs');
           const vm = require('vm');
           const html = fs.readFileSync('frontend/index.html','utf8');
-          const scripts = [...html.matchAll(/<script(?:[^>]*)>([\\s\\S]*?)<\\/script>/gi)];
+          const scripts = html.split('<script').slice(1).map(x=>x.split('>')[1].split('</script>')[0]);
           for (let i=0;i<scripts.length;i++) {
             try { new vm.Script(scripts[i][1], {filename:`frontend/index.html#script-${i+1}`}); }
             catch (e) { console.error(e.stack || e); process.exit(1); }
